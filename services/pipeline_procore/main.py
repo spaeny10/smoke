@@ -1,0 +1,132 @@
+import asyncio
+import os
+import sys
+from datetime import datetime, timezone
+from sqlalchemy import select
+
+# Add to sys.path to run standalone
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from packages.db.session import async_session
+from packages.db.models import Account, CompanyAlias, Signal
+from packages.matching.utils import normalize_company_name, fuzzy_match_company
+
+PROCORE_API_URL = "https://sandbox.procore.com/rest/v1.0/projects"
+
+async def fetch_procore_data():
+    print(f"[{datetime.now().isoformat()}] Starting Procore (Bid) data fetch...")
+    
+    # In reality, Procore requires OAuth2 integration.
+    # We will simulate the payload for a new "Bid/Tender" or "Project Award"
+    # that signals strong intent and high budget.
+    
+    mock_procore_data = [
+        {
+            "id": 8392104,
+            "project_name": "Austin Metro Transit Expansion",
+            "company_name": "Austin Commercial",
+            "stage": "Bidding",
+            "estimated_value": 75000000.0,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "location": "Austin, TX"
+        },
+        {
+            "id": 9923145,
+            "project_name": "Skyline High-Rise Condos",
+            "company_name": "Turner Construction Company",
+            "stage": "Pre-Construction",
+            "estimated_value": 120000000.0,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "location": "Chicago, IL"
+        }
+    ]
+    
+    async with async_session() as db:
+        # Load accounts for matching
+        result = await db.execute(select(Account.id, Account.name_normalized))
+        existing_accounts = {row.name_normalized: str(row.id) for row in result.all()}
+        
+        alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
+        existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
+        
+        records_fetched = len(mock_procore_data)
+        records_matched = 0
+        records_scored = 0
+        
+        for record in mock_procore_data:
+            company_name = record["company_name"]
+            norm_name = normalize_company_name(company_name)
+            
+            # Simple matching
+            matched_id = existing_aliases.get(norm_name)
+            if not matched_id and norm_name in existing_accounts:
+                matched_id = existing_accounts[norm_name]
+                
+            if not matched_id:
+                matched_id, score, match_category = fuzzy_match_company(norm_name, existing_accounts)
+                if match_category in ['manual_review', 'no_match']:
+                    # If it's a completely new GC from Procore, we could create an account.
+                    # For this demo, we'll auto-create if no match for demonstration of "net new inbound".
+                    new_acc = Account(
+                        name=company_name,
+                        name_normalized=norm_name,
+                        hq_city=record["location"].split(",")[0].strip() if "," in record["location"] else None,
+                        hq_state=record["location"].split(",")[1].strip() if "," in record["location"] else None,
+                    )
+                    db.add(new_acc)
+                    await db.flush() # get ID
+                    matched_id = new_acc.id
+                    existing_accounts[norm_name] = str(new_acc.id)
+            
+            if matched_id:
+                records_matched += 1
+                
+                # Check for existing signal
+                dup_check = await db.execute(
+                    select(Signal).where(Signal.external_id == f"procore_{record['id']}")
+                )
+                if dup_check.scalars().first():
+                    continue # Already processed
+                
+                # Calculate score
+                pts = 0
+                heat = "cool"
+                title = f"Procore: {record['stage']}"
+                
+                if record["stage"] == "Bidding":
+                    pts += 40
+                    heat = "hot"
+                    title = "Procore: Active Bidding"
+                elif record["stage"] == "Pre-Construction":
+                    pts += 50
+                    heat = "hot"
+                    title = "Procore: Pre-Construction Award"
+                    
+                if record["estimated_value"] >= 100000000:
+                    pts += 20 # Mega project bump
+                elif record["estimated_value"] >= 50000000:
+                    pts += 10
+                    
+                new_signal = Signal(
+                    account_id=matched_id,
+                    source="procore",
+                    signal_type="project_award",
+                    heat=heat,
+                    title=title,
+                    detail=f"Project: {record['project_name']} | Est. Value: ${record['estimated_value']:,.2f}",
+                    raw_data=record,
+                    score_contribution=pts,
+                    external_id=f"procore_{record['id']}",
+                    location_city=record["location"].split(",")[0].strip() if "," in record["location"] else None,
+                    location_state=record["location"].split(",")[1].strip() if "," in record["location"] else None
+                )
+                db.add(new_signal)
+                records_scored += 1
+                
+        await db.commit()
+    
+    print(f"[{datetime.now().isoformat()}] Procore pipeline complete.")
+    print(f"records_fetched={records_fetched} records_matched={records_matched} records_scored={records_scored}")
+
+if __name__ == "__main__":
+    asyncio.run(fetch_procore_data())

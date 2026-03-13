@@ -1,0 +1,14 @@
+venv/
+.venv/
+node_modules/
+frontend/node_modules/
+__pycache__/
+*.db
+.git/
+.gitignore
+*.md
+Documents/
+sample_accounts.csv
+docker-compose.yml
+.env
+.env.local
