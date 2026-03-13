@@ -22,8 +22,8 @@ export default function LoginPage({ onAuthSuccess }: LoginPageProps) {
     try {
       const res = await authApi.google(response.credential);
       onAuthSuccess(res.data.access_token);
-    } catch {
-      setError('Google sign-in failed. Please try again.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
