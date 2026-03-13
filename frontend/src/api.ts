@@ -110,9 +110,28 @@ export interface UserProfile {
 
 // ── API functions ───────────────────────────────────────
 
+export interface ImportResult {
+  message: string;
+  results: {
+    auto_matched: number;
+    flagged_for_review: number;
+    manual_review_required: number;
+    new_accounts_created: number;
+    contacts_added: number;
+    errors: string[];
+  };
+}
+
 export const accountsApi = {
   list: (params?: { search?: string; segment?: string; deal_stage?: string; offset?: number; limit?: number }) =>
     api.get<PaginatedResponse<Account>>('/api/accounts', { params }),
+  importCsv: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<ImportResult>('/accounts/import/csv', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   get: (id: string) =>
     api.get<Account>(`/api/accounts/${id}`),
   create: (data: Partial<Account>) =>

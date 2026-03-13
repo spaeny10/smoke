@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Search, RefreshCw, Download, Filter, Loader2 } from 'lucide-react';
-import { accountsApi, type Account } from './api';
+import { useState, useEffect, useRef } from 'react';
+import { Search, RefreshCw, Filter, Loader2, Upload, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { accountsApi, type Account, type ImportResult } from './api';
 
 function getScoreDisplay(score: number) {
   if (score >= 75) return { text: 'On Fire', color: 'text-red-500', bg: 'bg-red-500/10', icon: '\u2604\uFE0F' };
@@ -20,6 +20,11 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
+  const [showImport, setShowImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAccounts = (searchTerm?: string) => {
     setLoading(true);
@@ -38,6 +43,21 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
     const timer = setTimeout(() => fetchAccounts(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  const handleFileUpload = (file: File) => {
+    setImporting(true);
+    setImportError('');
+    setImportResult(null);
+    accountsApi.importCsv(file)
+      .then(res => {
+        setImportResult(res.data);
+        fetchAccounts(search);
+      })
+      .catch(err => {
+        setImportError(err.response?.data?.detail || 'Upload failed. Please check your CSV format.');
+      })
+      .finally(() => setImporting(false));
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#141416] text-[#e2e2e5]">
@@ -80,9 +100,12 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
               Refresh
             </button>
 
-            <button className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded-lg text-sm text-[#e2e2e5] hover:bg-[#202022] transition-colors">
-              <Download size={14} className="text-[#8b8b93]" />
-              Download CSV
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); setImportError(''); }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm text-white transition-colors"
+            >
+              <Upload size={14} />
+              Import CSV
             </button>
           </div>
         </div>
@@ -162,6 +185,119 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
           })
         )}
       </div>
+
+      {/* Import CSV Modal */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => !importing && setShowImport(false)}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <h2 className="text-lg font-semibold text-white">Import Companies & Contacts</h2>
+              <button onClick={() => !importing && setShowImport(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Result display */}
+              {importResult ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-green-400">
+                    <CheckCircle2 size={24} />
+                    <span className="text-lg font-medium">Import Complete</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#202022] rounded-lg p-3 border border-white/5">
+                      <p className="text-2xl font-bold text-white">{importResult.results.new_accounts_created}</p>
+                      <p className="text-xs text-[#8b8b93]">New companies created</p>
+                    </div>
+                    <div className="bg-[#202022] rounded-lg p-3 border border-white/5">
+                      <p className="text-2xl font-bold text-white">{importResult.results.contacts_added}</p>
+                      <p className="text-xs text-[#8b8b93]">Contacts added</p>
+                    </div>
+                    <div className="bg-[#202022] rounded-lg p-3 border border-white/5">
+                      <p className="text-2xl font-bold text-white">{importResult.results.auto_matched}</p>
+                      <p className="text-xs text-[#8b8b93]">Auto-matched to existing</p>
+                    </div>
+                    <div className="bg-[#202022] rounded-lg p-3 border border-white/5">
+                      <p className="text-2xl font-bold text-white">{importResult.results.flagged_for_review}</p>
+                      <p className="text-xs text-[#8b8b93]">Flagged for review</p>
+                    </div>
+                  </div>
+                  {importResult.results.errors.length > 0 && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                      <p className="text-sm text-red-400 font-medium mb-1">{importResult.results.errors.length} row error(s)</p>
+                      <div className="text-xs text-red-400/70 max-h-20 overflow-y-auto space-y-1">
+                        {importResult.results.errors.map((err, i) => <p key={i}>{err}</p>)}
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowImport(false)}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : importError ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-red-400">
+                    <AlertCircle size={24} />
+                    <span className="text-lg font-medium">Import Failed</span>
+                  </div>
+                  <p className="text-sm text-[#8b8b93]">{importError}</p>
+                  <button
+                    onClick={() => { setImportError(''); }}
+                    className="w-full py-2.5 bg-[#202022] hover:bg-[#2a2a2d] text-white rounded-lg text-sm font-medium transition-colors border border-white/5"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Format instructions */}
+                  <div className="bg-[#202022] rounded-lg p-4 border border-white/5">
+                    <p className="text-sm text-white font-medium mb-2">CSV Format</p>
+                    <p className="text-xs text-[#8b8b93] mb-2">Required column: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-indigo-400">company_name</code></p>
+                    <p className="text-xs text-[#8b8b93]">Optional: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-[#e2e2e5]">city, state, contact_name, title, contact_email</code></p>
+                  </div>
+
+                  {/* Upload area */}
+                  <div
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${importing ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-white/10 hover:border-indigo-500/30 cursor-pointer'}`}
+                    onClick={() => !importing && fileInputRef.current?.click()}
+                  >
+                    {importing ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <Loader2 size={32} className="animate-spin text-indigo-400" />
+                        <p className="text-sm text-[#8b8b93]">Processing your CSV...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <Upload size={32} className="text-[#8b8b93]" />
+                        <p className="text-sm text-white font-medium">Click to select a CSV file</p>
+                        <p className="text-xs text-[#8b8b93]">Companies will be fuzzy-matched to avoid duplicates</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
