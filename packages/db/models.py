@@ -50,8 +50,10 @@ class Account(Base):
     name = Column(String, nullable=False)
     name_normalized = Column(String, nullable=False)
     aliases = Column(JSON, default=list) # SQLite JSON for array
+    hq_address = Column(String)
     hq_city = Column(String)
     hq_state = Column(String)
+    hq_zip = Column(String)
     region = Column(String)
     employee_count = Column(Integer)
     segment = Column(String) # 'Commercial', 'Multifamily', 'Mixed'

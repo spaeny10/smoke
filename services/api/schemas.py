@@ -16,8 +16,10 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 class AccountCreate(BaseModel):
     name: str
+    hq_address: Optional[str] = None
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
+    hq_zip: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
@@ -25,8 +27,10 @@ class AccountCreate(BaseModel):
 
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
+    hq_address: Optional[str] = None
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
+    hq_zip: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
@@ -43,8 +47,10 @@ class AccountRead(BaseModel):
     id: str
     name: str
     name_normalized: str
+    hq_address: Optional[str] = None
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
+    hq_zip: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None

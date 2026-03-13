@@ -259,7 +259,8 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
                   <div className="bg-[#202022] rounded-lg p-4 border border-white/5">
                     <p className="text-sm text-white font-medium mb-2">CSV Format</p>
                     <p className="text-xs text-[#8b8b93] mb-2">Required column: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-indigo-400">company_name</code></p>
-                    <p className="text-xs text-[#8b8b93]">Optional: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-[#e2e2e5]">city, state, contact_name, title, contact_email</code></p>
+                    <p className="text-xs text-[#8b8b93] mb-1">Address: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-[#e2e2e5]">address, city, state, zip</code></p>
+                    <p className="text-xs text-[#8b8b93]">Contacts: <code className="bg-[#141416] px-1.5 py-0.5 rounded text-[#e2e2e5]">contact_name, title, contact_email, contact_phone</code></p>
                   </div>
 
                   {/* Upload area */}

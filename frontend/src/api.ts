@@ -40,8 +40,10 @@ export interface Account {
   id: string;
   name: string;
   name_normalized: string;
+  hq_address: string | null;
   hq_city: string | null;
   hq_state: string | null;
+  hq_zip: string | null;
   region: string | null;
   employee_count: number | null;
   segment: string | null;

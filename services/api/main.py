@@ -88,11 +88,14 @@ async def import_accounts_csv(file: UploadFile = File(...), db: AsyncSession = D
             
             contact_name = str(row.get('contact_name', ''))
             contact_email = str(row.get('contact_email', ''))
-            
+            contact_phone = str(row.get('contact_phone', ''))
+
             if pd.isna(contact_name) or contact_name == 'nan':
                 contact_name = ""
             if pd.isna(contact_email) or contact_email == 'nan':
                 contact_email = ""
+            if pd.isna(contact_phone) or contact_phone == 'nan':
+                contact_phone = ""
                 
             # Check for exact alias match
             matched_id = existing_aliases.get(norm_name)
@@ -127,8 +130,10 @@ async def import_accounts_csv(file: UploadFile = File(...), db: AsyncSession = D
                 new_acc = Account(
                     name=company_name,
                     name_normalized=norm_name,
+                    hq_address=str(row.get('address', '')) if 'address' in row and pd.notna(row['address']) else None,
                     hq_city=str(row.get('city', '')) if 'city' in row and pd.notna(row['city']) else None,
                     hq_state=str(row.get('state', '')) if 'state' in row and pd.notna(row['state']) else None,
+                    hq_zip=str(row.get('zip', '')) if 'zip' in row and pd.notna(row['zip']) else None,
                 )
                 
                 # Fetch reps and assign randomly/round-robin for demo
@@ -150,6 +155,7 @@ async def import_accounts_csv(file: UploadFile = File(...), db: AsyncSession = D
                     account_id=account_id_to_use,
                     name=contact_name,
                     email=contact_email,
+                    phone=contact_phone or None,
                     title=str(row.get('title', '')) if 'title' in row and pd.notna(row['title']) else None,
                     source='CSV'
                 )
