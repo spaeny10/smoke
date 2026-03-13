@@ -10,37 +10,78 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from packages.db.session import async_session
 from packages.db.models import Account, CompanyAlias, Signal
 from packages.matching.utils import normalize_company_name, fuzzy_match_company
+from packages.integrations.procore import ProcoreClient
 
-PROCORE_API_URL = "https://sandbox.procore.com/rest/v1.0/projects"
+# Procore stage names mapped to our internal stages
+PROCORE_STAGE_MAP = {
+    "Bidding": "Bidding",
+    "Pre-Construction": "Pre-Construction",
+    "Active": "Active",
+    "Course of Construction": "Active",
+    "Warranty": "Warranty",
+}
+
+MOCK_PROCORE_DATA = [
+    {
+        "id": 8392104,
+        "project_name": "Austin Metro Transit Expansion",
+        "company_name": "Austin Commercial",
+        "stage": "Bidding",
+        "estimated_value": 75000000.0,
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "location": "Austin, TX",
+    },
+    {
+        "id": 9923145,
+        "project_name": "Skyline High-Rise Condos",
+        "company_name": "Turner Construction Company",
+        "stage": "Pre-Construction",
+        "estimated_value": 120000000.0,
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "location": "Chicago, IL",
+    },
+]
+
+
+async def fetch_from_procore_api() -> list[dict]:
+    """Fetch real project data from Procore API, mapped to our record format."""
+    client = ProcoreClient()
+    if not client.is_configured:
+        return []
+
+    projects = await client.get_projects()
+    records = []
+    for p in projects:
+        # Extract location from address fields
+        city = p.get("city", "") or ""
+        state = p.get("state_code", "") or ""
+        location = f"{city}, {state}" if city and state else city or state or ""
+
+        stage = PROCORE_STAGE_MAP.get(p.get("stage", ""), p.get("stage", ""))
+
+        records.append({
+            "id": p.get("id"),
+            "project_name": p.get("name", ""),
+            "company_name": p.get("company", {}).get("name", "") if isinstance(p.get("company"), dict) else "",
+            "stage": stage,
+            "estimated_value": float(p.get("estimated_value", 0) or 0),
+            "created_at": p.get("created_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+            "location": location,
+        })
+    return records
+
 
 async def fetch_procore_data():
-    print(f"[{datetime.now().isoformat()}] Starting Procore (Bid) data fetch...")
-    
-    # In reality, Procore requires OAuth2 integration.
-    # We will simulate the payload for a new "Bid/Tender" or "Project Award"
-    # that signals strong intent and high budget.
-    
-    mock_procore_data = [
-        {
-            "id": 8392104,
-            "project_name": "Austin Metro Transit Expansion",
-            "company_name": "Austin Commercial",
-            "stage": "Bidding",
-            "estimated_value": 75000000.0,
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "location": "Austin, TX"
-        },
-        {
-            "id": 9923145,
-            "project_name": "Skyline High-Rise Condos",
-            "company_name": "Turner Construction Company",
-            "stage": "Pre-Construction",
-            "estimated_value": 120000000.0,
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "location": "Chicago, IL"
-        }
-    ]
-    
+    print(f"[{datetime.now().isoformat()}] Starting Procore data fetch...")
+
+    # Try real API first, fall back to mock
+    records = await fetch_from_procore_api()
+    if records:
+        print(f"  Fetched {len(records)} projects from Procore API")
+    else:
+        print("  Procore not configured or unavailable — using mock data")
+        records = MOCK_PROCORE_DATA
+
     async with async_session() as db:
         # Load accounts for matching
         result = await db.execute(select(Account.id, Account.name_normalized))
@@ -49,11 +90,11 @@ async def fetch_procore_data():
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
         
-        records_fetched = len(mock_procore_data)
+        records_fetched = len(records)
         records_matched = 0
         records_scored = 0
-        
-        for record in mock_procore_data:
+
+        for record in records:
             company_name = record["company_name"]
             norm_name = normalize_company_name(company_name)
             
@@ -70,6 +111,7 @@ async def fetch_procore_data():
                     new_acc = Account(
                         name=company_name,
                         name_normalized=norm_name,
+                        tier=0,  # Discovered — not yet promoted
                         hq_city=record["location"].split(",")[0].strip() if "," in record["location"] else None,
                         hq_state=record["location"].split(",")[1].strip() if "," in record["location"] else None,
                     )

@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -12,47 +13,107 @@ from packages.db.session import async_session
 from packages.db.models import Account, CompanyAlias, Signal
 from packages.matching.utils import normalize_company_name, fuzzy_match_company
 
-OSHA_API_BASE = "https://enforcedata.dol.gov/api/v2/safety/inspection"
+DOL_API_KEY = os.environ.get("DOL_API_KEY")
+DOL_API_BASE = "https://data.dol.gov/get/inspection"
+
+# Construction NAICS prefixes: 236=Building, 237=Heavy/Civil, 238=Specialty Trade
+CONSTRUCTION_NAICS = ["236", "237", "238"]
+
+MOCK_OSHA_DATA = [
+    {
+        "activity_nr": "123456789",
+        "estab_name": "Turner Construction Company LLC",
+        "site_city": "New York",
+        "site_state": "NY",
+        "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "insp_type": "Accident",
+        "violation_type": "Serious",
+        "total_current_penalty": 15000.0,
+        "nr_violations": 2,
+    },
+    {
+        "activity_nr": "987654321",
+        "estab_name": "DPR Construction",
+        "site_city": "Redwood City",
+        "site_state": "CA",
+        "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "insp_type": "Planned",
+        "violation_type": "",
+        "total_current_penalty": 0.0,
+        "nr_violations": 0,
+    },
+]
+
+
+async def fetch_from_dol_api() -> list[dict]:
+    """Fetch real OSHA inspection data from data.dol.gov API."""
+    if not DOL_API_KEY:
+        return []
+
+    headers = {"X-API-KEY": DOL_API_KEY}
+    all_records = []
+
+    async with aiohttp.ClientSession() as session:
+        for prefix in CONSTRUCTION_NAICS:
+            offset = 0
+            while True:
+                params = {
+                    "limit": 200,
+                    "offset": offset,
+                    "filter_object": json.dumps({
+                        "field": "naics_code",
+                        "operator": "gt",
+                        "value": f"{prefix}000",
+                    }),
+                }
+                try:
+                    async with session.get(
+                        DOL_API_BASE, headers=headers, params=params, timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp:
+                        if resp.status != 200:
+                            print(f"  DOL API returned {resp.status} for NAICS {prefix}, offset {offset}")
+                            break
+                        data = await resp.json()
+                        if not data:
+                            break
+
+                        # Filter to only records within this NAICS prefix range
+                        for row in data:
+                            naics = str(row.get("naics_code", ""))
+                            if naics.startswith(prefix):
+                                all_records.append({
+                                    "activity_nr": str(row.get("activity_nr", "")),
+                                    "estab_name": row.get("estab_name", ""),
+                                    "site_city": row.get("site_city", ""),
+                                    "site_state": row.get("site_state", ""),
+                                    "open_date": row.get("open_date", ""),
+                                    "insp_type": row.get("insp_type", ""),
+                                    "violation_type": row.get("viol_type_text", ""),
+                                    "total_current_penalty": float(row.get("total_current_penalty", 0) or 0),
+                                    "nr_violations": int(row.get("total_violations", 0) or 0),
+                                })
+
+                        if len(data) < 200:
+                            break
+                        offset += 200
+                except Exception as e:
+                    print(f"  DOL API error for NAICS {prefix}: {e}")
+                    break
+
+    return all_records
+
 
 async def fetch_osha_data():
     print(f"[{datetime.now().isoformat()}] Starting OSHA data fetch...")
-    
-    # We'll fetch a small sample of construction NAICS 236115 (New Single-Family Housing Construction) etc.
-    # The API format typically requires authentication or specific headers, but rules say "None (public)"
-    # https://enforcedata.dol.gov/api/v2/safety/inspection
-    
-    # NOTE: In reality, we'd iterate over the NAICS dictionary (236100-238990)
-    # and paginate. For this demo worker, we will just simulate a fetch. 
-    # The DOL API usually requires an API key in reality or specific POST query.
-    
-    # Since this is a smoke test, we'll mock the response to match a known account 
-    # uploaded in our CSV, like "Turner Construction Company" or "PCL Construction".
-    
-    mock_osha_data = [
-        {
-            "activity_nr": "123456789",
-            "estab_name": "Turner Construction Company LLC",
-            "site_city": "New York",
-            "site_state": "NY",
-            "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "insp_type": "Accident",
-            "violation_type": "Serious",
-            "total_current_penalty": 15000.0,
-            "nr_violations": 2
-        },
-        {
-            "activity_nr": "987654321",
-            "estab_name": "DPR Construction",
-            "site_city": "Redwood City",
-            "site_state": "CA",
-            "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "insp_type": "Planned",
-            "violation_type": "",
-            "total_current_penalty": 0.0,
-            "nr_violations": 0
-        }
-    ]
-    
+
+    # Try real API first, fall back to mock
+    records = await fetch_from_dol_api()
+    if records:
+        print(f"  Fetched {len(records)} records from DOL API")
+    else:
+        print("  DOL_API_KEY not set or API unavailable — using mock data")
+        records = MOCK_OSHA_DATA
+
     async with async_session() as db:
         # Load accounts for matching
         result = await db.execute(select(Account.id, Account.name_normalized))
@@ -61,11 +122,11 @@ async def fetch_osha_data():
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
         
-        records_fetched = len(mock_osha_data)
+        records_fetched = len(records)
         records_matched = 0
         records_scored = 0
-        
-        for record in mock_osha_data:
+
+        for record in records:
             company_name = record["estab_name"]
             norm_name = normalize_company_name(company_name)
             
@@ -77,8 +138,19 @@ async def fetch_osha_data():
             if not matched_id:
                 matched_id, score, match_category = fuzzy_match_company(norm_name, existing_accounts)
                 if match_category in ['manual_review', 'no_match']:
-                    matched_id = None
-            
+                    # Auto-create a tier=0 "Discovered" account so the signal is never lost
+                    new_acc = Account(
+                        name=company_name,
+                        name_normalized=norm_name,
+                        tier=0,
+                        hq_city=record["site_city"],
+                        hq_state=record["site_state"],
+                    )
+                    db.add(new_acc)
+                    await db.flush()
+                    matched_id = new_acc.id
+                    existing_accounts[norm_name] = str(new_acc.id)
+
             if matched_id:
                 records_matched += 1
                 

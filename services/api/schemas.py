@@ -193,6 +193,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -207,6 +211,19 @@ class UserRead(BaseModel):
     role: str
     team_id: Optional[str] = None
     created_at: datetime
+
+
+# ── Priority Queue ──────────────────────────────────────
+
+class PriorityQueueItem(BaseModel):
+    account: AccountRead
+    priority_score: float
+    reasons: List[str]
+    recent_signals: List[SignalRead]
+
+
+class PriorityQueueResponse(BaseModel):
+    items: List[PriorityQueueItem]
 
 
 # ── Outreach (moved from main.py) ───────────────────────

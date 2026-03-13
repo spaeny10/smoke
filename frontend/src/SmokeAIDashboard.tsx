@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot, Loader2, Check, XCircle } from 'lucide-react';
-import { signalsApi, type Signal } from './api';
+import { signalsApi, aiApi, type Signal } from './api';
 
 function getSignalType(source: string): string {
   const s = source.toLowerCase();
@@ -38,6 +38,7 @@ export default function SmokeAIDashboard() {
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [chatSignals, setChatSignals] = useState<(Signal & { account_name?: string })[]>([]);
 
   const fetchSignals = () => {
     setSignalsLoading(true);
@@ -67,21 +68,32 @@ export default function SmokeAIDashboard() {
       .catch(() => {});
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: query }]);
+    const userQuery = query;
+    setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
     setQuery('');
     setIsTyping(true);
+    setChatSignals([]);
 
-    setTimeout(() => {
+    try {
+      const res = await aiApi.search(userQuery);
+      const { message, signals: resultSignals } = res.data;
+      setChatSignals(resultSignals);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `I found 3 relevant signals matching your criteria. I've highlighted them for you. It looks like Turner Construction is active right now—I recommend reaching out to their regional VP.`
+        content: message,
       }]);
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while searching. Please try again.',
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -235,6 +247,50 @@ export default function SmokeAIDashboard() {
               </div>
             </div>
           ))}
+          {/* Inline signal cards from AI search */}
+          {chatSignals.length > 0 && !isTyping && (
+            <div className="space-y-2 pl-12">
+              <p className="text-xs text-[#8b8b93] font-medium mb-2">{chatSignals.length} signal{chatSignals.length !== 1 ? 's' : ''} found:</p>
+              {chatSignals.slice(0, 10).map((sig) => {
+                const type = getSignalType(sig.source);
+                return (
+                  <div key={sig.id} className="bg-[#1a1a1c] border border-white/5 rounded-lg p-3 hover:border-indigo-500/30 transition-colors cursor-pointer">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-5 h-5 rounded flex items-center justify-center ${
+                          type === 'osha' ? 'bg-red-500/10 text-red-500' :
+                          type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
+                          type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
+                          'bg-green-500/10 text-green-500'
+                        }`}>
+                          {type === 'osha' ? <AlertCircle size={12} /> :
+                           type === 'permit' ? <FileText size={12} /> :
+                           type === 'procore' ? <Building2 size={12} /> :
+                           <MessageSquare size={12} />}
+                        </div>
+                        <span className="text-xs font-semibold text-[#8b8b93] uppercase">{sig.source}</span>
+                        {sig.account_name && <span className="text-xs text-indigo-400">{sig.account_name}</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {sig.heat === 'hot' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">HOT</span>}
+                        {sig.heat === 'warm' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">WARM</span>}
+                        <span className="text-[10px] text-[#8b8b93]">{timeAgo(sig.detected_at)}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-white font-medium">{sig.title}</p>
+                    {sig.detail && <p className="text-xs text-[#8b8b93] mt-1 line-clamp-1">{sig.detail}</p>}
+                    {(sig.location_city || sig.project_value) && (
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {sig.location_city && <span className="text-[10px] text-[#8b8b93]">{sig.location_city}{sig.location_state ? `, ${sig.location_state}` : ''}</span>}
+                        {sig.project_value && <span className="text-[10px] text-emerald-400">${(sig.project_value / 1_000_000).toFixed(1)}M</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {isTyping && (
             <div className="flex gap-4 justify-start">
               <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">

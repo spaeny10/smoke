@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, Loader2, Upload, X, CheckCircle2, AlertCircle, Star, ChevronDown } from 'lucide-react';
+import { Search, RefreshCw, Loader2, Upload, X, CheckCircle2, AlertCircle, Star, ChevronDown, Plus, ArrowUpCircle } from 'lucide-react';
 import { accountsApi, type Account, type ImportResult, type UserProfile } from './api';
 
 function getScoreDisplay(score: number) {
@@ -10,6 +10,7 @@ function getScoreDisplay(score: number) {
 }
 
 function getTierDisplay(tier: number) {
+  if (tier === 0) return { label: 'NEW', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' };
   if (tier === 1) return { label: 'T1', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
   if (tier === 2) return { label: 'T2', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
   return { label: 'T3', color: 'text-[#8b8b93]', bg: 'bg-[#202022]', border: 'border-white/5' };
@@ -38,6 +39,11 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importError, setImportError] = useState('');
+  const [showAddCompany, setShowAddCompany] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', hq_city: '', hq_state: '', segment: '', tier: 1 });
+  const [addSaving, setAddSaving] = useState(false);
+  const [discoveredCount, setDiscoveredCount] = useState(0);
+  const [promoteMenuId, setPromoteMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAccounts = (searchTerm?: string) => {
@@ -56,6 +62,13 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       .finally(() => setLoading(false));
   };
 
+  const fetchDiscoveredCount = () => {
+    accountsApi.discoveredCount()
+      .then(res => setDiscoveredCount(res.data.count))
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchDiscoveredCount(); }, []);
   useEffect(() => { fetchAccounts(); }, [tierFilter, viewScope]);
 
   useEffect(() => {
@@ -76,6 +89,36 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
         setImportError(err.response?.data?.detail || 'Upload failed. Please check your CSV format.');
       })
       .finally(() => setImporting(false));
+  };
+
+  const handleAddCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.name.trim()) return;
+    setAddSaving(true);
+    accountsApi.create({
+      name: addForm.name.trim(),
+      hq_city: addForm.hq_city || undefined,
+      hq_state: addForm.hq_state || undefined,
+      segment: addForm.segment || undefined,
+      tier: addForm.tier,
+    } as Parameters<typeof accountsApi.create>[0])
+      .then(() => {
+        setShowAddCompany(false);
+        setAddForm({ name: '', hq_city: '', hq_state: '', segment: '', tier: 1 });
+        fetchAccounts(search);
+      })
+      .catch(() => {})
+      .finally(() => setAddSaving(false));
+  };
+
+  const handlePromote = (accountId: string, newTier: number) => {
+    accountsApi.update(accountId, { tier: newTier })
+      .then(() => {
+        setPromoteMenuId(null);
+        fetchAccounts(search);
+        fetchDiscoveredCount();
+      })
+      .catch(() => {});
   };
 
   return (
@@ -142,8 +185,16 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
             </button>
 
             <button
-              onClick={() => { setShowImport(true); setImportResult(null); setImportError(''); }}
+              onClick={() => setShowAddCompany(true)}
               className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm text-white transition-colors"
+            >
+              <Plus size={14} />
+              Add Company
+            </button>
+
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); setImportError(''); }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded-lg text-sm text-[#e2e2e5] hover:bg-[#202022] transition-colors"
             >
               <Upload size={14} />
               Import CSV
@@ -153,6 +204,26 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
 
         {/* Tier filter chips */}
         <div className="flex items-center gap-2 mb-2">
+          {/* Discovered chip with count badge */}
+          <button
+            onClick={() => setTierFilter(0)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border flex items-center gap-1.5 ${
+              tierFilter === 0
+                ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
+                : 'bg-transparent text-[#8b8b93] border-white/5 hover:bg-[#202022]'
+            }`}
+          >
+            <ArrowUpCircle size={10} />
+            Discovered
+            {discoveredCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300">
+                {discoveredCount}
+              </span>
+            )}
+          </button>
+
+          <div className="w-px h-5 bg-white/10" />
+
           {[
             { value: null, label: 'All Tiers' },
             { value: 1, label: 'Tier 1 — Target' },
@@ -223,11 +294,40 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                   </div>
                 </div>
 
-                <div className="col-span-1 flex items-center">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${tierDisplay.bg} ${tierDisplay.color} border ${tierDisplay.border}`}>
-                    {account.tier === 1 && <Star size={9} className="inline mr-0.5 -mt-0.5" />}
-                    {tierDisplay.label}
-                  </span>
+                <div className="col-span-1 flex items-center relative">
+                  {account.tier === 0 ? (
+                    <div className="relative">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPromoteMenuId(promoteMenuId === account.id ? null : account.id); }}
+                        className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors flex items-center gap-1"
+                      >
+                        <ArrowUpCircle size={10} />
+                        Promote
+                      </button>
+                      {promoteMenuId === account.id && (
+                        <div className="absolute top-full left-0 mt-1 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-20 py-1 w-36">
+                          {[
+                            { tier: 1, label: 'Tier 1 — Target', color: 'text-orange-400' },
+                            { tier: 2, label: 'Tier 2 — Pipeline', color: 'text-blue-400' },
+                            { tier: 3, label: 'Tier 3 — General', color: 'text-[#e2e2e5]' },
+                          ].map(opt => (
+                            <button
+                              key={opt.tier}
+                              onClick={(e) => { e.stopPropagation(); handlePromote(account.id, opt.tier); }}
+                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[#202022] transition-colors ${opt.color}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${tierDisplay.bg} ${tierDisplay.color} border ${tierDisplay.border}`}>
+                      {account.tier === 1 && <Star size={9} className="inline mr-0.5 -mt-0.5" />}
+                      {tierDisplay.label}
+                    </span>
+                  )}
                 </div>
 
                 <div className="col-span-3 flex flex-col justify-center">
@@ -251,6 +351,100 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
           })
         )}
       </div>
+
+      {/* Add Company Modal */}
+      {showAddCompany && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => !addSaving && setShowAddCompany(false)}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <h2 className="text-lg font-semibold text-white">Add Company</h2>
+              <button onClick={() => !addSaving && setShowAddCompany(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleAddCompany} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#8b8b93] mb-1.5">Company Name *</label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Turner Construction"
+                  className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-[#8b8b93]"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[#8b8b93] mb-1.5">City</label>
+                  <input
+                    type="text"
+                    value={addForm.hq_city}
+                    onChange={e => setAddForm(f => ({ ...f, hq_city: e.target.value }))}
+                    placeholder="New York"
+                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-[#8b8b93]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[#8b8b93] mb-1.5">State</label>
+                  <input
+                    type="text"
+                    value={addForm.hq_state}
+                    onChange={e => setAddForm(f => ({ ...f, hq_state: e.target.value }))}
+                    placeholder="NY"
+                    maxLength={2}
+                    className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-[#8b8b93]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#8b8b93] mb-1.5">Segment</label>
+                <select
+                  value={addForm.segment}
+                  onChange={e => setAddForm(f => ({ ...f, segment: e.target.value }))}
+                  className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Select segment...</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Multifamily">Multifamily</option>
+                  <option value="Mixed">Mixed</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#8b8b93] mb-1.5">Tier</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 1, label: 'Tier 1 — Target', active: 'bg-orange-500/10 text-orange-400 border-orange-500/30' },
+                    { value: 2, label: 'Tier 2 — Pipeline', active: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
+                    { value: 3, label: 'Tier 3 — General', active: 'bg-[#202022] text-[#e2e2e5] border-white/10' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAddForm(f => ({ ...f, tier: opt.value }))}
+                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                        addForm.tier === opt.value ? opt.active : 'bg-transparent text-[#8b8b93] border-white/5 hover:bg-[#202022]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!addForm.name.trim() || addSaving}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {addSaving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {addSaving ? 'Creating...' : 'Add Company'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Import CSV Modal */}
       {showImport && (

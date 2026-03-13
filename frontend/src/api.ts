@@ -103,6 +103,13 @@ export interface Signal {
   created_at: string;
 }
 
+export interface PriorityQueueItem {
+  account: Account;
+  priority_score: number;
+  reasons: string[];
+  recent_signals: Signal[];
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -144,6 +151,10 @@ export const accountsApi = {
     api.put<Account>(`/api/accounts/${id}`, data),
   delete: (id: string) =>
     api.delete(`/api/accounts/${id}`),
+  discoveredCount: () =>
+    api.get<{ count: number }>('/api/accounts/discovered/count'),
+  priorityQueue: (params?: { view?: string; limit?: number }) =>
+    api.get<{ items: PriorityQueueItem[] }>('/api/accounts/priority-queue', { params }),
   getContacts: (id: string) =>
     api.get<Contact[]>(`/api/accounts/${id}/contacts`),
   getSignals: (id: string) =>
@@ -199,11 +210,24 @@ export const outreachApi = {
     api.get('/api/demo/outreach'),
 };
 
+export interface AISearchResponse {
+  message: string;
+  signals: (Signal & { account_name?: string })[];
+  filters_used: Record<string, unknown>;
+}
+
+export const aiApi = {
+  search: (query: string) =>
+    api.post<AISearchResponse>('/api/ai/search', { query }),
+};
+
 export const authApi = {
   register: (data: { email: string; password: string; name: string; team_id?: string }) =>
     api.post<{ access_token: string; token_type: string }>('/api/auth/register', data),
   login: (data: { email: string; password: string }) =>
     api.post<{ access_token: string; token_type: string }>('/api/auth/login', data),
+  google: (credential: string) =>
+    api.post<{ access_token: string; token_type: string }>('/api/auth/google', { credential }),
   me: () =>
     api.get<UserProfile>('/api/auth/me'),
 };

@@ -28,6 +28,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY packages/ ./packages/
 COPY services/ ./services/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 
 # Copy built frontend into /app/static
 COPY --from=frontend-build /app/frontend/dist ./static
@@ -39,4 +41,4 @@ ENV PYTHONPATH=/app
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "alembic upgrade head 2>/dev/null; uvicorn services.api.main:app --host 0.0.0.0 --port ${PORT}"]

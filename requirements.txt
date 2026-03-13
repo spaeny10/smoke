@@ -12,3 +12,6 @@ sendgrid
 twilio
 python-jose[cryptography]
 passlib[bcrypt]
+alembic
+aiohttp
+google-auth

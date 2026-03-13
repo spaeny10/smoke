@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 from packages.db.session import get_db
 from packages.db.models import User
 from services.api.schemas import (
-    RegisterRequest, LoginRequest, TokenResponse, UserRead,
+    RegisterRequest, LoginRequest, GoogleAuthRequest, TokenResponse, UserRead,
 )
 from services.api.auth import (
     hash_password, verify_password, create_access_token, require_auth,
+    GOOGLE_CLIENT_ID,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -49,6 +52,52 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+    token = create_access_token({"sub": user.id, "team_id": user.team_id})
+    return TokenResponse(access_token=token)
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_auth(data: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    """Verify a Google ID token and return a Smoke JWT."""
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            data.credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google credential",
+        )
+
+    google_id = idinfo["sub"]
+    email = idinfo["email"]
+    name = idinfo.get("name", email.split("@")[0])
+
+    # 1. Look up by google_id
+    user = await db.scalar(select(User).where(User.google_id == google_id))
+
+    if not user:
+        # 2. Look up by email (account linking)
+        user = await db.scalar(select(User).where(User.email == email))
+        if user:
+            user.google_id = google_id
+            if not user.name or user.name == email:
+                user.name = name
+        else:
+            # 3. Create new user
+            user = User(
+                email=email,
+                name=name,
+                google_id=google_id,
+                role="rep",
+            )
+            db.add(user)
+
+    await db.commit()
+    await db.refresh(user)
+
     token = create_access_token({"sub": user.id, "team_id": user.team_id})
     return TokenResponse(access_token=token)
 

@@ -4,11 +4,12 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from packages.db.session import async_session
+from packages.db.session import async_session, init_db
 from packages.db.models import Team, User
 from sqlalchemy import select
 
 async def seed():
+    await init_db()
     async with async_session() as db:
         team_check = await db.execute(select(Team).where(Team.name == 'Northeast Commercial'))
         if not team_check.scalars().first():

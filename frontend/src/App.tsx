@@ -19,7 +19,8 @@ import {
   PieChart as PieChartIcon,
   MessageSquare,
   Mail,
-  Check
+  Check,
+  LogOut
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import AccountDetail from './AccountDetail';
@@ -32,7 +33,8 @@ import SmokeAIDashboard from './SmokeAIDashboard';
 import Inbox from './Inbox';
 import ContactsList from './ContactsList';
 import ContactDetail from './ContactDetail';
-import { metricsApi, outreachApi, authApi, type UserProfile } from './api';
+import LoginPage from './LoginPage';
+import { metricsApi, outreachApi, authApi, accountsApi, type UserProfile, type PriorityQueueItem } from './api';
 
 const chartData1 = [
   { name: '0', uv: 10 }, { name: '100', uv: 25 }, { name: '200', uv: 40 }, 
@@ -72,7 +74,12 @@ export default function App() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string, draft?: string, account?: string}[]>([]);
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('smoke_token'));
+  const [authChecking, setAuthChecking] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [discoveredCount, setDiscoveredCount] = useState(0);
+  const [priorityQueue, setPriorityQueue] = useState<PriorityQueueItem[]>([]);
+  const [pqLoading, setPqLoading] = useState(false);
   const [metrics, setMetrics] = useState({
     activeAccounts: 124,
     newSignals: 86,
@@ -80,7 +87,29 @@ export default function App() {
     outreachSent: 610
   });
 
+  // Auth check on mount / token change
   useEffect(() => {
+    if (!authToken) {
+      setAuthChecking(false);
+      setUserProfile(null);
+      return;
+    }
+    authApi.me()
+      .then(res => {
+        setUserProfile(res.data);
+        setAuthChecking(false);
+      })
+      .catch(() => {
+        localStorage.removeItem('smoke_token');
+        setAuthToken(null);
+        setUserProfile(null);
+        setAuthChecking(false);
+      });
+  }, [authToken]);
+
+  // Fetch dashboard data only when authenticated
+  useEffect(() => {
+    if (!userProfile) return;
     metricsApi.get()
       .then(res => {
         if (res.data.activeAccounts !== undefined) {
@@ -88,14 +117,26 @@ export default function App() {
         }
       })
       .catch(err => console.error("Error fetching metrics:", err));
-    // Fetch user profile if token exists
-    const token = localStorage.getItem('smoke_token');
-    if (token) {
-      authApi.me()
-        .then(res => setUserProfile(res.data))
-        .catch(() => setUserProfile(null));
-    }
-  }, []);
+    accountsApi.discoveredCount()
+      .then(res => setDiscoveredCount(res.data.count))
+      .catch(() => {});
+    setPqLoading(true);
+    accountsApi.priorityQueue({ limit: 5 })
+      .then(res => setPriorityQueue(res.data.items))
+      .catch(() => {})
+      .finally(() => setPqLoading(false));
+  }, [userProfile]);
+
+  const handleAuthSuccess = (token: string) => {
+    localStorage.setItem('smoke_token', token);
+    setAuthToken(token);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('smoke_token');
+    setAuthToken(null);
+    setUserProfile(null);
+  };
 
   useEffect(() => {
     localStorage.setItem('smoke_activeTab', activeTab);
@@ -105,6 +146,20 @@ export default function App() {
       localStorage.removeItem('smoke_selectedProjectId');
     }
   }, [activeTab, selectedProjectId]);
+
+  // Auth gate: loading
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#141416] flex items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  // Auth gate: not authenticated
+  if (!userProfile) {
+    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <div className="flex h-screen bg-[#141416] text-[#e2e2e5] font-sans overflow-hidden">
@@ -156,12 +211,19 @@ export default function App() {
             <span className="text-sm font-medium">Journeys</span>
           </div>
           
-          <div 
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+          <div
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => setActiveTab('companies')}
           >
-            <Building2 size={18} />
-            <span className="text-sm font-medium">Companies</span>
+            <div className="flex items-center gap-3">
+              <Building2 size={18} />
+              <span className="text-sm font-medium">Companies</span>
+            </div>
+            {discoveredCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 min-w-[20px] text-center">
+                {discoveredCount}
+              </span>
+            )}
           </div>
 
           <div 
@@ -214,6 +276,13 @@ export default function App() {
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white transition-colors">
             <BookOpen size={18} />
             <span className="text-sm font-medium">Guides</span>
+          </div>
+          <div
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          >
+            <LogOut size={18} />
+            <span className="text-sm font-medium">Sign out</span>
           </div>
         </div>
         
@@ -644,29 +713,68 @@ export default function App() {
 
           {/* Bottom Row */}
           
-          {/* Daily Insight (Left Span 5) */}
+          {/* Today's Priorities (Left Span 5) */}
           <div className="col-span-5 bg-[#1a1a1c] border border-white/5 rounded-[24px] p-6 text-sm">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-zinc-800 flex items-center justify-center border border-white/10">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <div className="w-6 h-6 rounded-md bg-indigo-500/15 flex items-center justify-center border border-indigo-500/20">
+                  <TrendingUp size={14} className="text-indigo-400" />
                 </div>
-                <h3 className="font-semibold text-white flex items-center gap-2">
-                  Daily Insight <Info size={14} className="text-[#8b8b93]" />
-                </h3>
+                <h3 className="font-semibold text-white">Today's Priorities</h3>
               </div>
-              <button className="px-3 py-1.5 bg-white text-black text-xs font-medium rounded-md hover:bg-gray-200 transition-colors">
-                View Analysis
+              <button
+                onClick={() => setActiveTab('companies')}
+                className="px-3 py-1.5 bg-[#202022] text-[#8b8b93] text-xs font-medium rounded-lg hover:bg-[#2a2a2d] hover:text-white transition-colors border border-white/5"
+              >
+                View All
               </button>
             </div>
-            
-            <p className="text-[#8b8b93] mb-4 leading-relaxed">
-              Targeted OSHA Violation follow-ups achieved the highest lead-to-meeting conversion rate at 8.5%, generating nearly 3x as many scheduled demos as standard outreach sequences.
-            </p>
-            
-            <p className="text-[#8b8b93] leading-relaxed">
-              <span className="font-semibold text-[#e2e2e5]">Key insights:</span> Reaching out to Safety Managers within 48 hours of an OSHA citation being posted on EnforceData yields the highest ROI. There is a clear opportunity to scale Sendgrid campaigns aggressively on the "Repeat Violator" segment.
-            </p>
+
+            {pqLoading ? (
+              <div className="flex items-center justify-center py-12 text-[#8b8b93]">
+                <Loader2 size={20} className="animate-spin mr-2" />
+                <span className="text-sm">Calculating priorities...</span>
+              </div>
+            ) : priorityQueue.length === 0 ? (
+              <p className="text-[#8b8b93] text-center py-12">No priority accounts found. Add accounts and signals to get started.</p>
+            ) : (
+              <div className="space-y-3">
+                {priorityQueue.map((item, idx) => (
+                  <div
+                    key={item.account.id}
+                    onClick={() => { setSelectedAccountId(item.account.id); setActiveTab('companyDetail'); }}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-[#141416] border border-white/5 hover:border-indigo-500/30 cursor-pointer transition-colors group"
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${
+                      idx === 0 ? 'bg-red-500/15 text-red-400 border border-red-500/20' :
+                      idx === 1 ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20' :
+                      'bg-[#202022] text-[#8b8b93] border border-white/5'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-medium text-sm group-hover:text-indigo-400 transition-colors truncate">{item.account.name}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          item.account.tier === 1 ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                          item.account.tier === 2 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                          'bg-[#202022] text-[#8b8b93] border border-white/5'
+                        }`}>T{item.account.tier}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.reasons.slice(0, 3).map((reason, ri) => (
+                          <span key={ri} className="text-[10px] text-[#8b8b93] bg-[#202022] px-1.5 py-0.5 rounded border border-white/5">{reason}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-bold text-indigo-400">{item.priority_score}</span>
+                      <p className="text-[9px] text-[#8b8b93]">score</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Pipeline By Channel (Right Span 7) */}
