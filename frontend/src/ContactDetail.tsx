@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Phone, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2 } from 'lucide-react';
 import { contactsApi, type Contact } from './api';
 
 interface ContactDetailProps {

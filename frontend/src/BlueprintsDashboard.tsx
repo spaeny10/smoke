@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Network, ArrowRight, Zap, Target, BookOpen, Building2, UserPlus, CheckCircle2, ChevronRight, AlertCircle, Play } from 'lucide-react';
+import { useState } from 'react';
+import { Network, Zap, Target, BookOpen, Building2, CheckCircle2, AlertCircle, Play } from 'lucide-react';
 
 export default function BlueprintsDashboard() {
   const [selectedSegment, setSelectedSegment] = useState('Enterprise Tier 1');
@@ -161,7 +161,7 @@ export default function BlueprintsDashboard() {
   );
 }
 
-function JourneyNode({ icon, title, description, stats, color, isCompleted, isLast = false }: any) {
+function JourneyNode({ icon, title, description, stats, color, isLast = false }: any) {
   const colorMap: any = {
     indigo: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
     blue: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
