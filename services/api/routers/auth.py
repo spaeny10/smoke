@@ -11,7 +11,7 @@ from services.api.schemas import (
 )
 from services.api.auth import (
     hash_password, verify_password, create_access_token, require_auth,
-    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_ID, ALLOWED_EMAIL_DOMAINS,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -19,6 +19,12 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    domain = data.email.split("@")[1].lower() if "@" in data.email else ""
+    if domain not in ALLOWED_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration is restricted to authorized domains.",
+        )
     existing = await db.scalar(select(User).where(User.email == data.email))
     if existing:
         raise HTTPException(
@@ -74,6 +80,14 @@ async def google_auth(data: GoogleAuthRequest, db: AsyncSession = Depends(get_db
     google_id = idinfo["sub"]
     email = idinfo["email"]
     name = idinfo.get("name", email.split("@")[0])
+
+    # Domain restriction
+    domain = email.split("@")[1].lower()
+    if domain not in ALLOWED_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sign-in is restricted to authorized domains.",
+        )
 
     # 1. Look up by google_id
     user = await db.scalar(select(User).where(User.google_id == google_id))
