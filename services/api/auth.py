@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.db.session import get_db
-from packages.db.models import User
+from packages.db.models import User, Account
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
@@ -66,3 +66,25 @@ async def require_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+async def get_visible_account_ids(
+    user: User, view: str, db: AsyncSession
+) -> Optional[list]:
+    """Returns list of account IDs the user can see, or None for 'all' (no filter)."""
+    if user.role == 'director' and view == 'all':
+        return None
+    if user.role in ('director', 'manager') and view == 'team':
+        team_reps = await db.execute(
+            select(User.id).where(User.team_id == user.team_id)
+        )
+        rep_ids = [r[0] for r in team_reps.all()]
+        accts = await db.execute(
+            select(Account.id).where(Account.assigned_rep_id.in_(rep_ids))
+        )
+        return [a[0] for a in accts.all()]
+    # Default: "mine" — only accounts assigned to this user
+    accts = await db.execute(
+        select(Account.id).where(Account.assigned_rep_id == user.id)
+    )
+    return [a[0] for a in accts.all()]

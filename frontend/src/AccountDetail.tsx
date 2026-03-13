@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star } from 'lucide-react';
 import { useProjects } from './ProjectsContext';
 import { accountsApi, type Account, type Contact, type Signal } from './api';
 
@@ -98,6 +98,30 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           <div className="ml-8 border-l border-white/10 pl-8">
             <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Score</p>
             <p className="text-3xl font-bold text-orange-500">{Math.round(account.composite_score)}</p>
+          </div>
+
+          <div className="ml-8 border-l border-white/10 pl-8">
+            <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Tier</p>
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3].map(t => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    accountsApi.update(accountId, { tier: t }).then(res => setAccount(res.data));
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                    account.tier === t
+                      ? t === 1 ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+                        : t === 2 ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                        : 'bg-[#202022] text-[#e2e2e5] border-white/10'
+                      : 'bg-transparent text-[#8b8b93] border-white/5 hover:bg-[#202022]'
+                  }`}
+                >
+                  {t === 1 && <Star size={10} className="inline mr-1 -mt-0.5" />}
+                  T{t}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

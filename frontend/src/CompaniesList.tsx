@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, RefreshCw, Filter, Loader2, Upload, X, CheckCircle2, AlertCircle } from 'lucide-react';
-import { accountsApi, type Account, type ImportResult } from './api';
+import { Search, RefreshCw, Loader2, Upload, X, CheckCircle2, AlertCircle, Star, ChevronDown } from 'lucide-react';
+import { accountsApi, type Account, type ImportResult, type UserProfile } from './api';
 
 function getScoreDisplay(score: number) {
   if (score >= 75) return { text: 'On Fire', color: 'text-red-500', bg: 'bg-red-500/10', icon: '\u2604\uFE0F' };
@@ -9,17 +9,31 @@ function getScoreDisplay(score: number) {
   return { text: 'Cold', color: 'text-blue-400', bg: 'bg-blue-400/10', icon: '\u2744\uFE0F' };
 }
 
+function getTierDisplay(tier: number) {
+  if (tier === 1) return { label: 'T1', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' };
+  if (tier === 2) return { label: 'T2', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' };
+  return { label: 'T3', color: 'text-[#8b8b93]', bg: 'bg-[#202022]', border: 'border-white/5' };
+}
+
 const ICON_COLORS = ['bg-blue-800', 'bg-blue-600', 'bg-yellow-600', 'bg-green-600', 'bg-red-800', 'bg-gray-700', 'bg-zinc-800', 'bg-green-500', 'bg-stone-600', 'bg-indigo-600'];
 
 const generateBars = () => {
   return Array.from({ length: 30 }).map(() => Math.floor(Math.random() * 80) + 10);
 };
 
-export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id: string) => void }) {
+interface CompaniesListProps {
+  onCompanyClick: (id: string) => void;
+  userProfile?: UserProfile | null;
+}
+
+export default function CompaniesList({ onCompanyClick, userProfile }: CompaniesListProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
+  const [tierFilter, setTierFilter] = useState<number | null>(null);
+  const [viewScope, setViewScope] = useState<string>('mine');
+  const [showScopeMenu, setShowScopeMenu] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -28,7 +42,12 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
 
   const fetchAccounts = (searchTerm?: string) => {
     setLoading(true);
-    accountsApi.list({ search: searchTerm || undefined, limit: 100 })
+    accountsApi.list({
+      search: searchTerm || undefined,
+      tier: tierFilter ?? undefined,
+      view: userProfile ? viewScope : undefined,
+      limit: 100,
+    })
       .then(res => {
         setAccounts(res.data.items);
         setTotal(res.data.total);
@@ -37,7 +56,7 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchAccounts(); }, []);
+  useEffect(() => { fetchAccounts(); }, [tierFilter, viewScope]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchAccounts(search), 300);
@@ -76,11 +95,33 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
 
         {/* Toolbar */}
         <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center">
-            <button className="flex items-center justify-between text-sm py-2 px-3 hover:bg-[#202022] rounded-md transition-colors min-w-[140px]">
-              <span className="font-medium text-[#e2e2e5]">All Companies</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b8b93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <div className="flex items-center relative">
+            <button
+              onClick={() => setShowScopeMenu(!showScopeMenu)}
+              className="flex items-center justify-between text-sm py-2 px-3 hover:bg-[#202022] rounded-md transition-colors min-w-[160px]"
+            >
+              <span className="font-medium text-[#e2e2e5]">
+                {viewScope === 'mine' ? 'My Accounts' : viewScope === 'team' ? 'Team Accounts' : 'All Accounts'}
+              </span>
+              <ChevronDown size={14} className="text-[#8b8b93]" />
             </button>
+            {showScopeMenu && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-20 py-1">
+                <button onClick={() => { setViewScope('mine'); setShowScopeMenu(false); }} className={`w-full text-left px-3 py-2 text-sm hover:bg-[#202022] transition-colors ${viewScope === 'mine' ? 'text-indigo-400' : 'text-[#e2e2e5]'}`}>
+                  My Accounts
+                </button>
+                {userProfile && ['manager', 'director'].includes(userProfile.role) && (
+                  <button onClick={() => { setViewScope('team'); setShowScopeMenu(false); }} className={`w-full text-left px-3 py-2 text-sm hover:bg-[#202022] transition-colors ${viewScope === 'team' ? 'text-indigo-400' : 'text-[#e2e2e5]'}`}>
+                    Team Accounts
+                  </button>
+                )}
+                {userProfile?.role === 'director' && (
+                  <button onClick={() => { setViewScope('all'); setShowScopeMenu(false); }} className={`w-full text-left px-3 py-2 text-sm hover:bg-[#202022] transition-colors ${viewScope === 'all' ? 'text-indigo-400' : 'text-[#e2e2e5]'}`}>
+                    All Accounts
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -110,20 +151,37 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-2">
-           <button className="flex items-center gap-2 px-3 py-1.5 bg-[#202022] border border-white/5 rounded-lg text-sm text-[#e2e2e5] hover:bg-[#2a2a2d] transition-colors">
-              <Filter size={14} className="text-[#8b8b93]" />
-              Filters
+        {/* Tier filter chips */}
+        <div className="flex items-center gap-2 mb-2">
+          {[
+            { value: null, label: 'All Tiers' },
+            { value: 1, label: 'Tier 1 — Target' },
+            { value: 2, label: 'Tier 2 — Pipeline' },
+            { value: 3, label: 'Tier 3 — General' },
+          ].map(opt => (
+            <button
+              key={opt.label}
+              onClick={() => setTierFilter(opt.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                tierFilter === opt.value
+                  ? opt.value === 1 ? 'bg-orange-500/10 text-orange-400 border-orange-500/30'
+                    : opt.value === 2 ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                    : opt.value === 3 ? 'bg-[#202022] text-[#e2e2e5] border-white/10'
+                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                  : 'bg-transparent text-[#8b8b93] border-white/5 hover:bg-[#202022]'
+              }`}
+            >
+              {opt.value === 1 && <Star size={10} className="inline mr-1" />}
+              {opt.label}
             </button>
-            <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-[#202022] rounded-lg text-sm text-[#8b8b93] transition-colors">
-              Columns
-            </button>
+          ))}
         </div>
       </div>
 
       {/* Table Header */}
       <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
-        <div className="col-span-4 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Company</div>
+        <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Company</div>
+        <div className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Tier</div>
         <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Stage</div>
         <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5] pl-6">Score</div>
         <div className="col-span-3 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-[#e2e2e5]">30 Days Activity</div>
@@ -144,6 +202,7 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
         ) : (
           accounts.map((account, idx) => {
             const scoreDisplay = getScoreDisplay(account.composite_score);
+            const tierDisplay = getTierDisplay(account.tier);
             const initial = account.name.charAt(0).toUpperCase();
             const iconBg = ICON_COLORS[idx % ICON_COLORS.length];
             const dateStr = new Date(account.updated_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
@@ -154,7 +213,7 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
                 onClick={() => onCompanyClick(account.id)}
                 className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group items-center"
               >
-                <div className="col-span-4 flex items-center gap-3">
+                <div className="col-span-3 flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0`}>
                     {initial}
                   </div>
@@ -162,6 +221,13 @@ export default function CompaniesList({ onCompanyClick }: { onCompanyClick: (id:
                     <h3 className="text-[#e2e2e5] font-medium text-sm truncate group-hover:text-indigo-400 transition-colors">{account.name}</h3>
                     <p className="text-xs text-[#8b8b93] truncate">{account.hq_city ? `${account.hq_city}${account.hq_state ? `, ${account.hq_state}` : ''}` : account.name_normalized}</p>
                   </div>
+                </div>
+
+                <div className="col-span-1 flex items-center">
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${tierDisplay.bg} ${tierDisplay.color} border ${tierDisplay.border}`}>
+                    {account.tier === 1 && <Star size={9} className="inline mr-0.5 -mt-0.5" />}
+                    {tierDisplay.label}
+                  </span>
                 </div>
 
                 <div className="col-span-3 flex flex-col justify-center">

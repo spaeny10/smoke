@@ -1,15 +1,18 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Account, Contact, Signal, Project
+from packages.db.models import Account, Contact, Signal, Project, User
 from packages.matching.utils import normalize_company_name
 from services.api.schemas import (
     AccountCreate, AccountUpdate, AccountRead,
     ContactRead, SignalRead, ProjectRead,
     PaginatedResponse,
 )
+from services.api.auth import get_current_user, get_visible_account_ids
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -19,12 +22,28 @@ async def list_accounts(
     search: str = Query(None),
     segment: str = Query(None),
     deal_stage: str = Query(None),
+    tier: int = Query(None),
+    view: str = Query("mine"),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
 ):
     query = select(Account)
     count_query = select(func.count(Account.id))
+
+    # Role-based visibility scoping
+    if current_user:
+        # Validate view param against role
+        if current_user.role == 'rep' and view not in ('mine',):
+            view = 'mine'
+        elif current_user.role == 'manager' and view not in ('mine', 'team'):
+            view = 'team'
+
+        visible_ids = await get_visible_account_ids(current_user, view, db)
+        if visible_ids is not None:
+            query = query.where(Account.id.in_(visible_ids))
+            count_query = count_query.where(Account.id.in_(visible_ids))
 
     if search:
         query = query.where(Account.name.ilike(f"%{search}%"))
@@ -35,10 +54,13 @@ async def list_accounts(
     if deal_stage:
         query = query.where(Account.deal_stage == deal_stage)
         count_query = count_query.where(Account.deal_stage == deal_stage)
+    if tier is not None:
+        query = query.where(Account.tier == tier)
+        count_query = count_query.where(Account.tier == tier)
 
     total = (await db.execute(count_query)).scalar() or 0
     result = await db.execute(
-        query.order_by(Account.updated_at.desc()).offset(offset).limit(limit)
+        query.order_by(Account.tier.asc(), Account.composite_score.desc()).offset(offset).limit(limit)
     )
     items = [AccountRead.model_validate(a) for a in result.scalars().all()]
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)

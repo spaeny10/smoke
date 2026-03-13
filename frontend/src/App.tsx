@@ -32,7 +32,7 @@ import SmokeAIDashboard from './SmokeAIDashboard';
 import Inbox from './Inbox';
 import ContactsList from './ContactsList';
 import ContactDetail from './ContactDetail';
-import { metricsApi, outreachApi } from './api';
+import { metricsApi, outreachApi, authApi, type UserProfile } from './api';
 
 const chartData1 = [
   { name: '0', uv: 10 }, { name: '100', uv: 25 }, { name: '200', uv: 40 }, 
@@ -72,6 +72,7 @@ export default function App() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string, draft?: string, account?: string}[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [metrics, setMetrics] = useState({
     activeAccounts: 124,
     newSignals: 86,
@@ -87,6 +88,13 @@ export default function App() {
         }
       })
       .catch(err => console.error("Error fetching metrics:", err));
+    // Fetch user profile if token exists
+    const token = localStorage.getItem('smoke_token');
+    if (token) {
+      authApi.me()
+        .then(res => setUserProfile(res.data))
+        .catch(() => setUserProfile(null));
+    }
   }, []);
 
   useEffect(() => {
@@ -214,12 +222,14 @@ export default function App() {
           <img src="https://i.pravatar.cc/150?u=a042581f4e30026704d" alt="User" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-indigo-500/50 transition-colors" />
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-white truncate">Construction Rep</span>
-              <div className="w-3.5 h-3.5 rounded-full bg-[#3b82f6] flex items-center justify-center">
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              </div>
+              <span className="text-sm font-medium text-white truncate">{userProfile?.name || 'Sales Rep'}</span>
+              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                userProfile?.role === 'director' ? 'bg-purple-500/15 text-purple-400' :
+                userProfile?.role === 'manager' ? 'bg-blue-500/15 text-blue-400' :
+                'bg-green-500/15 text-green-400'
+              }`}>{userProfile?.role || 'rep'}</span>
             </div>
-            <span className="text-xs text-[#8b8b93] truncate block">rep@smoke.io</span>
+            <span className="text-xs text-[#8b8b93] truncate block">{userProfile?.email || 'rep@smoke.io'}</span>
           </div>
         </div>
       </aside>
@@ -227,7 +237,7 @@ export default function App() {
       {activeTab === 'companyDetail' && selectedAccountId ? (
         <AccountDetail accountId={selectedAccountId} onNavigate={(tab) => setActiveTab(tab as any)} />
       ) : activeTab === 'companies' ? (
-        <CompaniesList onCompanyClick={(id) => { setSelectedAccountId(id); setActiveTab('companyDetail'); }} />
+        <CompaniesList onCompanyClick={(id) => { setSelectedAccountId(id); setActiveTab('companyDetail'); }} userProfile={userProfile} />
       ) : activeTab === 'contacts' ? (
         <ContactsList
           onContactClick={(id) => {
@@ -265,7 +275,7 @@ export default function App() {
                </div>
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-white">Sarah Manager</h1>
+              <h1 className="text-xl font-semibold text-white">{userProfile?.name || 'Sales Rep'}</h1>
               <p className="text-sm text-[#8b8b93]">Welcome back to Smoke 👋</p>
             </div>
           </div>

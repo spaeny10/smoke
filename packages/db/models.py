@@ -38,7 +38,7 @@ class User(Base):
     name = Column(String, nullable=False)
     google_id = Column(String, unique=True)
     password_hash = Column(String, nullable=True)
-    role = Column(String, default='rep') # 'rep', 'manager', 'admin'
+    role = Column(String, default='rep') # 'rep', 'manager', 'director'
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     team = relationship("Team", back_populates="members")
@@ -57,6 +57,7 @@ class Account(Base):
     region = Column(String)
     employee_count = Column(Integer)
     segment = Column(String) # 'Commercial', 'Multifamily', 'Mixed'
+    tier = Column(Integer, default=3) # 1=Target, 2=Active Pipeline, 3=General
     composite_score = Column(Float, default=0.0)
     score_trend = Column(String, default='stable')
     deal_stage = Column(String, default='New signal')
@@ -117,6 +118,7 @@ class Signal(Base):
     source = Column(String, nullable=False)
     signal_type = Column(String, nullable=False)
     heat = Column(String, default='cool')
+    status = Column(String, default='new') # 'new', 'viewed', 'actioned', 'dismissed'
     title = Column(String, nullable=False)
     detail = Column(String)
     raw_data = Column(JSON)

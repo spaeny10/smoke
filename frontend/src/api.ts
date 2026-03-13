@@ -47,6 +47,7 @@ export interface Account {
   region: string | null;
   employee_count: number | null;
   segment: string | null;
+  tier: number;
   composite_score: number;
   score_trend: string;
   deal_stage: string;
@@ -90,6 +91,7 @@ export interface Signal {
   source: string;
   signal_type: string;
   heat: string;
+  status: string;
   title: string;
   detail: string | null;
   score_contribution: number;
@@ -125,7 +127,7 @@ export interface ImportResult {
 }
 
 export const accountsApi = {
-  list: (params?: { search?: string; segment?: string; deal_stage?: string; offset?: number; limit?: number }) =>
+  list: (params?: { search?: string; segment?: string; deal_stage?: string; tier?: number; view?: string; offset?: number; limit?: number }) =>
     api.get<PaginatedResponse<Account>>('/api/accounts', { params }),
   importCsv: (file: File) => {
     const formData = new FormData();
@@ -177,10 +179,12 @@ export const projectsApi = {
 };
 
 export const signalsApi = {
-  list: (params?: { account_id?: string; source?: string; heat?: string; offset?: number; limit?: number }) =>
+  list: (params?: { account_id?: string; source?: string; heat?: string; status?: string; tier?: number; view?: string; offset?: number; limit?: number }) =>
     api.get<PaginatedResponse<Signal>>('/api/signals', { params }),
   get: (id: string) =>
     api.get<Signal>(`/api/signals/${id}`),
+  updateStatus: (id: string, status: string) =>
+    api.patch<Signal>(`/api/signals/${id}/status`, { status }),
 };
 
 export const metricsApi = {

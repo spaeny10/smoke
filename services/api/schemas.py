@@ -23,6 +23,7 @@ class AccountCreate(BaseModel):
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
+    tier: Optional[int] = 3
 
 
 class AccountUpdate(BaseModel):
@@ -34,6 +35,7 @@ class AccountUpdate(BaseModel):
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
+    tier: Optional[int] = None
     deal_stage: Optional[str] = None
     composite_score: Optional[float] = None
     score_trend: Optional[str] = None
@@ -54,6 +56,7 @@ class AccountRead(BaseModel):
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
+    tier: int
     composite_score: float
     score_trend: str
     deal_stage: str
@@ -159,6 +162,7 @@ class SignalRead(BaseModel):
     source: str
     signal_type: str
     heat: str
+    status: str
     title: str
     detail: Optional[str] = None
     score_contribution: float
@@ -168,6 +172,10 @@ class SignalRead(BaseModel):
     location_state: Optional[str] = None
     detected_at: datetime
     created_at: datetime
+
+
+class SignalStatusUpdate(BaseModel):
+    status: str  # 'viewed', 'actioned', 'dismissed'
 
 
 # ── Auth ─────────────────────────────────────────────────
