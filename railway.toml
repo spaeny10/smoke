@@ -1,6 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "./Dockerfile"
+dockerBuildArgs = ["VITE_GOOGLE_CLIENT_ID"]
 
 [deploy]
 healthcheckPath = "/health"

@@ -10,6 +10,11 @@ COPY frontend/ ./
 
 # Empty string = API calls go to same origin (no CORS needed)
 ENV VITE_API_URL=""
+
+# Google OAuth client ID must be available at build time for Vite
+ARG VITE_GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 RUN npm run build
 
 # Stage 2: Python backend + built frontend
