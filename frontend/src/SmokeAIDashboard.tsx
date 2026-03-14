@@ -28,7 +28,7 @@ type StatusFilterValue = 'new' | 'all';
 export default function SmokeAIDashboard() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [signalsLoading, setSignalsLoading] = useState(true);
-  const [tierFilter, setTierFilter] = useState<TierFilterValue>('tier12');
+  const [tierFilter, setTierFilter] = useState<TierFilterValue>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('new');
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([
@@ -42,13 +42,11 @@ export default function SmokeAIDashboard() {
 
   const fetchSignals = () => {
     setSignalsLoading(true);
-    const params: Record<string, string | number> = { limit: 30 };
+    const params: Record<string, string | number> = { limit: 30, view: 'all' };
     if (statusFilter === 'new') params.status = 'new';
     if (tierFilter === 'tier1') params.tier = 1;
-    // tier12 = tier 1 + 2, which we do client-side since API takes a single tier value
-    // For tier12 we fetch without tier filter and filter client-side
     if (tierFilter === 'tier12') {
-      // We'll fetch all and filter client-side, or just skip tier param
+      // tier 1+2: no tier param, filter client-side
     }
     signalsApi.list(params as Record<string, string>)
       .then(res => setSignals(res.data.items))
