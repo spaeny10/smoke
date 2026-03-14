@@ -97,19 +97,21 @@ class Project(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
     primary_contact_id = Column(String, ForeignKey('contacts.id', ondelete='SET NULL'), nullable=True)
-    
+    signal_id = Column(String, ForeignKey('signals.id', ondelete='SET NULL'), nullable=True)
+
     name = Column(String, nullable=False) # e.g. "Chicago West Loop Development"
     description = Column(String)
-    
+
     stage = Column(String, default=SalesStage.NEW.value)
     origin = Column(String, default=DealOrigin.MANUAL.value) # manual or scraped
     estimated_value = Column(Float, default=0.0)
-    
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     account = relationship("Account", back_populates="projects")
     primary_contact = relationship("Contact", back_populates="projects")
+    signal = relationship("Signal", back_populates="project")
 
 class Signal(Base):
     __tablename__ = 'signals'
@@ -134,6 +136,7 @@ class Signal(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     account = relationship("Account", back_populates="signals")
+    project = relationship("Project", back_populates="signal", uselist=False)
 
 class Activity(Base):
     __tablename__ = 'activities'

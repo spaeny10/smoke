@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { projectsApi, type Project as ApiProject } from './api';
 
 export interface Project {
@@ -6,7 +6,7 @@ export interface Project {
   name: string;
   accountName: string;
   value: number;
-  origin: 'manual' | 'scraped';
+  origin: string;
   dueDate?: string;
   stage: string;
   signalId?: string;
@@ -18,8 +18,9 @@ function apiToLocal(p: ApiProject): Project {
     name: p.name,
     accountName: p.account_name || 'Unknown',
     value: p.estimated_value,
-    origin: p.origin as 'manual' | 'scraped',
+    origin: p.origin,
     stage: p.stage,
+    signalId: p.signal_id || undefined,
   };
 }
 
@@ -28,6 +29,7 @@ interface ProjectsContextType {
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   addProject: (p: Project) => void;
   updateProjectStage: (id: string, stage: string) => void;
+  refresh: () => void;
   loading: boolean;
 }
 
@@ -37,7 +39,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchProjects = useCallback(() => {
+    setLoading(true);
     projectsApi.list({ limit: 100 })
       .then(res => {
         setProjects(res.data.items.map(apiToLocal));
@@ -46,20 +49,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
   const addProject = (project: Project) => {
     // Optimistic update
     setProjects(prev => [...prev, project]);
-    // Sync to API
-    projectsApi.create({
-      account_id: '', // Will be set by caller if needed
-      name: project.name,
-      stage: project.stage,
-      origin: project.origin,
-      estimated_value: project.value,
-    }).catch(() => {
-      // Rollback on failure
-      setProjects(prev => prev.filter(p => p.id !== project.id));
-    });
   };
 
   const updateProjectStage = (id: string, stage: string) => {
@@ -67,12 +63,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, stage } : p));
     // Sync to API
     projectsApi.update(id, { stage }).catch(() => {
-      // Rollback would go here in production
+      // Rollback: re-fetch on failure
+      fetchProjects();
     });
   };
 
   return (
-    <ProjectsContext.Provider value={{ projects, setProjects, addProject, updateProjectStage, loading }}>
+    <ProjectsContext.Provider value={{ projects, setProjects, addProject, updateProjectStage, refresh: fetchProjects, loading }}>
       {children}
     </ProjectsContext.Provider>
   );

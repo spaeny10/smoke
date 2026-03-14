@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star, Phone, Mail, MessageSquare, FileText, Send } from 'lucide-react';
-import { useProjects } from './ProjectsContext';
-import { accountsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence } from './api';
+import { accountsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, projectsApi, outreachApi, signalsApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence, type Project } from './api';
 
 const intentData = [
   { date: 'May 8', score: 68 },
@@ -23,8 +22,6 @@ const intentData = [
 
 export default function AccountDetail({ accountId, onNavigate }: { accountId: string; onNavigate?: (tab: string) => void }) {
   const [activeTab, setActiveTab] = React.useState<'overview' | 'signals' | 'people' | 'activity'>('overview');
-  const { projects, addProject, updateProjectStage } = useProjects();
-
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -40,6 +37,12 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   const [dedupLoading, setDedupLoading] = useState(false);
   const [availableSequences, setAvailableSequences] = useState<OutreachSequence[]>([]);
   const [enrollMenuContactId, setEnrollMenuContactId] = useState<string | null>(null);
+  const [accountApiProjects, setAccountApiProjects] = useState<Project[]>([]);
+  const [promotingSignalId, setPromotingSignalId] = useState<string | null>(null);
+  const [outreachContactId, setOutreachContactId] = useState<string | null>(null);
+  const [outreachLoading, setOutreachLoading] = useState(false);
+  const [outreachResult, setOutreachResult] = useState<string | null>(null);
+  const [dismissingSignalId, setDismissingSignalId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -47,20 +50,18 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
       accountsApi.get(accountId),
       accountsApi.getContacts(accountId),
       accountsApi.getSignals(accountId),
-    ]).then(([acctRes, contactsRes, signalsRes]) => {
+      projectsApi.list({ account_id: accountId, limit: 100 }),
+    ]).then(([acctRes, contactsRes, signalsRes, projRes]) => {
       setAccount(acctRes.data);
       setContacts(contactsRes.data);
       setSignals(signalsRes.data);
+      setAccountApiProjects(projRes.data.items);
     }).catch(() => {})
       .finally(() => setLoading(false));
   }, [accountId]);
 
-  const accountName = account?.name || 'Loading...';
-  const accountProjects = projects.filter(p => p.accountName === accountName);
-
-  const isProcorePromoted = projects.some(p => p.signalId === 'sig-1');
-  const isOSHAPromoted = projects.some(p => p.signalId === 'sig-2');
-  const isWebPromoted = projects.some(p => p.signalId === 'sig-3');
+  // Set of signal IDs that already have a project created from them
+  const promotedSignalIds = new Set(accountApiProjects.filter(p => p.signal_id).map(p => p.signal_id!));
 
   if (loading) {
     return (
@@ -168,9 +169,6 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           >
             Signals
           </div>
-          <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
-            Journey
-          </div>
           <div
             onClick={() => setActiveTab('people')}
             className={`pb-3 font-medium text-sm whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'people' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-[#8b8b93] hover:text-white'}`}
@@ -189,12 +187,6 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           >
             Activity
           </div>
-          <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
-            Deals
-          </div>
-          <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
-            Agent
-          </div>
         </div>
 
         {activeTab === 'overview' ? (
@@ -202,15 +194,55 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
             {/* Overview Box */}
             <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6 mb-6">
               <h2 className="text-white font-semibold mb-4">Overview</h2>
-              <ul className="space-y-3 text-sm text-[#e2e2e5] list-disc list-inside">
-                <li><span className="font-semibold">This company ($1B revenue, 3,959 employees)</span> is in evaluation phase, with 27 high-intent interactions logged over the past 30 days.</li>
-                <li><span className="text-blue-400 cursor-pointer hover:underline">Sophia Ramirez (CRO)</span> visited the pricing and ROI calculator pages multiple times between July 8-17, indicating budget validation and business case preparation.</li>
-                <li>Anonymous keyword searches for "account intelligence" and "ABM" and visits on the executive overview and security compliance sections on July 12, suggesting leadership-level involvement.</li>
-                <li><span className="text-blue-400 cursor-pointer hover:underline">Marcus Chen (CTO)</span> explored the technical documentation, workflow automation guides, and API integration resources on July 9 and again on July 23.</li>
-                <li>Multiple users across the revenue and marketing teams accessed demo replays, attribution reporting, and Salesforce integration content, highlighting cross-functional interest.</li>
-                <li>Account showed sustained engagement with paid and organic search, intent surging around "multi-touch attribution enterprise" and "AI-led funnel optimization".</li>
-                <li>Based on these patterns, they are confirmed to be in an evaluation, with decision-makers engaged, technical fit validated, and procurement likely underway.</li>
-              </ul>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Deal Stage</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.deal_stage || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Segment</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.segment || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Employees</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.employee_count ? account.employee_count.toLocaleString() : 'Unknown'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Headquarters</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.hq_city ? `${account.hq_city}${account.hq_state ? `, ${account.hq_state}` : ''}` : 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Region</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.region || 'Not set'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Score Trend</p>
+                    <p className="text-sm text-[#e2e2e5]">{account.score_trend || 'Stable'}</p>
+                  </div>
+                </div>
+              </div>
+              {signals.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-white/5">
+                  <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-2 font-semibold">Recent Signals</p>
+                  <p className="text-sm text-[#e2e2e5]">
+                    {signals.length} signal{signals.length !== 1 ? 's' : ''} detected
+                    {signals.filter(s => s.heat === 'hot').length > 0 && <> — <span className="text-red-400 font-medium">{signals.filter(s => s.heat === 'hot').length} hot</span></>}
+                    {signals.filter(s => s.heat === 'warm').length > 0 && <> — <span className="text-orange-400 font-medium">{signals.filter(s => s.heat === 'warm').length} warm</span></>}
+                  </p>
+                </div>
+              )}
+              {contacts.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/5">
+                  <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-2 font-semibold">Key Contacts</p>
+                  <p className="text-sm text-[#e2e2e5]">
+                    {contacts.length} contact{contacts.length !== 1 ? 's' : ''} on file
+                    {contacts.filter(c => c.role_category === 'Decision Maker').length > 0 && <> — <span className="text-green-400 font-medium">{contacts.filter(c => c.role_category === 'Decision Maker').length} decision maker{contacts.filter(c => c.role_category === 'Decision Maker').length !== 1 ? 's' : ''}</span></>}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Intent Chart Box */}
@@ -315,13 +347,15 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   Active Projects (Pipeline)
                 </h2>
               </div>
-              
+
+              {accountApiProjects.length === 0 ? (
+                <div className="text-center py-8 text-[#8b8b93] text-sm">No projects yet. Promote a signal to create one.</div>
+              ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-white/5 text-[#8b8b93] text-sm">
                       <th className="pb-3 font-medium">Project Name</th>
-                      <th className="pb-3 font-medium">Primary Contact</th>
                       <th className="pb-3 font-medium">Stage</th>
                       <th className="pb-3 font-medium">Est. Value</th>
                       <th className="pb-3 font-medium">Source</th>
@@ -329,35 +363,34 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                     </tr>
                   </thead>
                   <tbody className="text-sm">
-                    {accountProjects.map((p) => (
+                    {accountApiProjects.map((p) => (
                       <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                         <td className="py-4 text-white font-medium">{p.name}</td>
-                        <td className="py-4 text-[#8b8b93]">Assigned Rep</td>
                         <td className="py-4">
                           <span className={`px-2 py-1 rounded-md text-xs font-semibold ${
                             p.stage === 'new' ? 'bg-indigo-500/10 text-indigo-400' :
                             p.stage === 'engineering' ? 'bg-blue-500/10 text-blue-400' :
+                            p.stage === 'contact' ? 'bg-green-500/10 text-green-400' :
+                            p.stage === 'proposal' ? 'bg-yellow-500/10 text-yellow-400' :
                             'bg-gray-500/10 text-gray-400'
                           }`}>
                             {p.stage.charAt(0).toUpperCase() + p.stage.slice(1)}
                           </span>
                         </td>
-                        <td className="py-4 text-green-400 font-medium">${p.value.toLocaleString()}</td>
+                        <td className="py-4 text-green-400 font-medium">${p.estimated_value.toLocaleString()}</td>
                         <td className="py-4">
                           <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md ${
+                            p.origin === 'signal' ? 'bg-purple-500/10 text-purple-400' :
                             p.origin === 'scraped' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'
                           }`}>
-                            {p.origin}
+                            {p.origin === 'signal' ? 'From Signal' : p.origin}
                           </span>
                         </td>
                         <td className="py-4 text-right">
-                          <button 
-                            onClick={() => {
-                              updateProjectStage(p.id, 'new');
-                              onNavigate?.('deals');
-                            }}
+                          <button
+                            onClick={() => onNavigate?.('deals')}
                             className="text-xs text-indigo-400 font-medium hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-md">
-                            Move to NEW Pipeline
+                            View Pipeline
                           </button>
                         </td>
                       </tr>
@@ -365,6 +398,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           </>
         ) : activeTab === 'signals' ? (
@@ -397,153 +431,99 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
             </div>
 
             <div className="space-y-4">
-              {/* Procore Signal */}
-              <div className="bg-[#202022] border border-orange-500/20 rounded-xl p-5 flex gap-4 hover:border-orange-500/40 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                   <Target size={20} className="text-orange-400" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-orange-400 block mb-1">Procore Integration</span>
-                      <h3 className="text-white font-medium text-base">New Active Bid Detected</h3>
+              {signals.length === 0 ? (
+                <div className="text-center py-12 text-[#8b8b93] text-sm">No signals found for this account.</div>
+              ) : signals.map((sig) => {
+                const isPromoted = promotedSignalIds.has(sig.id);
+                const isPromoting = promotingSignalId === sig.id;
+                const src = sig.source.toLowerCase();
+                const isOsha = src.includes('osha');
+                const isProcore = src.includes('procore');
+                const isPermit = src.includes('permit');
+                const iconColor = isOsha ? 'text-red-400 bg-red-500/10' : isProcore ? 'text-orange-400 bg-orange-500/10' : isPermit ? 'text-blue-400 bg-blue-500/10' : 'text-green-400 bg-green-500/10';
+                const borderColor = sig.heat === 'hot' ? 'border-red-500/20 hover:border-red-500/40' : sig.heat === 'warm' ? 'border-orange-500/20 hover:border-orange-500/40' : 'border-white/5 hover:border-white/10';
+                const icon = isOsha ? <AlertCircle size={20} /> : isProcore ? <Target size={20} /> : isPermit ? <FileText size={20} /> : <ExternalLink size={20} />;
+                return (
+                  <div key={sig.id} className={`bg-[#202022] border ${borderColor} rounded-xl p-5 flex gap-4 transition-colors`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconColor}`}>
+                      {icon}
                     </div>
-                    <span className="text-xs text-[#8b8b93]">2 hours ago</span>
-                  </div>
-                  <p className="text-sm text-[#8b8b93] leading-relaxed mb-4">
-                    Abbott Laboratories was just added as the General Contractor on a new $12M healthcare expansion project in the Dallas area.
-                  </p>
-                  
-                  <div className="flex items-center gap-3 border-t border-white/5 pt-4">
-                    {isProcorePromoted ? (
-                      <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-4 py-2 rounded-lg border border-indigo-500/20 flex items-center gap-2">
-                        <Target size={14} /> Active in Projects
-                      </span>
-                    ) : (
-                      <>
-                        <button 
-                          onClick={() => {
-                            addProject({
-                              id: `p-${Date.now()}`,
-                              name: 'Dallas Hospital Expansion',
-                              accountName: 'Abbott Laboratories',
-                              value: 12000,
-                              origin: 'scraped',
-                              stage: 'new',
-                              signalId: 'sig-1'
-                            });
-                            onNavigate?.('deals');
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                          <Plus size={14} /> Promote to Project
-                        </button>
-                        <button className="text-[#8b8b93] hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors border border-white/5">
-                          Dismiss
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <span className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isOsha ? 'text-red-400' : isProcore ? 'text-orange-400' : isPermit ? 'text-blue-400' : 'text-green-400'}`}>{sig.source}</span>
+                          <h3 className="text-white font-medium text-base">{sig.title}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {sig.heat === 'hot' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">HOT</span>}
+                          {sig.heat === 'warm' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">WARM</span>}
+                          <span className="text-xs text-[#8b8b93]">
+                            {sig.source_date ? new Date(sig.source_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : new Date(sig.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                      {sig.detail && <p className="text-sm text-[#8b8b93] leading-relaxed mb-3">{sig.detail}</p>}
+                      <div className="flex items-center gap-3 flex-wrap text-xs mb-4">
+                        {sig.location_city && (
+                          <span className="text-[#8b8b93]">{sig.location_city}{sig.location_state ? `, ${sig.location_state}` : ''}</span>
+                        )}
+                        {sig.project_value != null && sig.project_value > 0 && (
+                          <span className="text-emerald-400 font-semibold">${sig.project_value >= 1_000_000 ? `${(sig.project_value / 1_000_000).toFixed(1)}M` : `${(sig.project_value / 1_000).toFixed(0)}K`}</span>
+                        )}
+                        {sig.score_contribution > 0 && (
+                          <span className="text-indigo-400 font-bold">+{sig.score_contribution}</span>
+                        )}
+                      </div>
 
-               {/* OSHA Signal */}
-               <div className="bg-[#202022] border border-white/5 rounded-xl p-5 flex gap-4 hover:border-white/10 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#2a2a2c] flex items-center justify-center shrink-0">
-                   <AlertCircle size={20} className="text-[#8b8b93]" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#8b8b93] block mb-1">OSHA API Scraper</span>
-                      <h3 className="text-white font-medium text-base">Active Site Inspection Logged</h3>
+                      <div className="flex items-center gap-3 border-t border-white/5 pt-4">
+                        {isPromoted ? (
+                          <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-4 py-2 rounded-lg border border-indigo-500/20 flex items-center gap-2">
+                            <Target size={14} /> Active in Projects
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              disabled={isPromoting}
+                              onClick={() => {
+                                setPromotingSignalId(sig.id);
+                                projectsApi.create({
+                                  account_id: accountId,
+                                  name: sig.project_name || sig.title,
+                                  description: sig.detail || sig.title,
+                                  signal_id: sig.id,
+                                  stage: 'new',
+                                  origin: 'signal',
+                                  estimated_value: sig.project_value || 0,
+                                }).then(res => {
+                                  setAccountApiProjects(prev => [...prev, res.data]);
+                                }).catch(() => {})
+                                  .finally(() => setPromotingSignalId(null));
+                              }}
+                              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                            >
+                              {isPromoting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                              {isPromoting ? 'Creating...' : 'Promote to Project'}
+                            </button>
+                            <button
+                              disabled={dismissingSignalId === sig.id}
+                              onClick={() => {
+                                setDismissingSignalId(sig.id);
+                                signalsApi.updateStatus(sig.id, 'dismissed')
+                                  .then(() => setSignals(prev => prev.filter(s => s.id !== sig.id)))
+                                  .catch(() => {})
+                                  .finally(() => setDismissingSignalId(null));
+                              }}
+                              className="text-[#8b8b93] hover:text-white disabled:opacity-50 text-xs font-medium px-4 py-2 rounded-lg transition-colors border border-white/5"
+                            >
+                              {dismissingSignalId === sig.id ? 'Dismissing...' : 'Dismiss'}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs text-[#8b8b93]">Yesterday</span>
                   </div>
-                  <p className="text-sm text-[#8b8b93] leading-relaxed mt-1 mb-4">
-                    An OSHA inspector logged activity at the new Chicago West Loop Development. Site status confirmed active.
-                  </p>
-                  
-                  <div className="flex items-center gap-3 border-t border-white/5 pt-4">
-                    {isOSHAPromoted ? (
-                      <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-4 py-2 rounded-lg border border-indigo-500/20 flex items-center gap-2">
-                        <Target size={14} /> Active in Projects
-                      </span>
-                    ) : (
-                      <>
-                        <button 
-                          onClick={() => {
-                            addProject({
-                              id: `p-${Date.now()}`,
-                              name: 'Chicago West Loop OSHA',
-                              accountName: 'Abbott Laboratories',
-                              value: 0,
-                              origin: 'scraped',
-                              stage: 'new',
-                              signalId: 'sig-2'
-                            });
-                            onNavigate?.('deals');
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                          <Plus size={14} /> Promote to Project
-                        </button>
-                        <button className="text-[#8b8b93] hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors border border-white/5">
-                          Dismiss
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Web Signal */}
-              <div className="bg-[#202022] border border-white/5 rounded-xl p-5 flex gap-4 hover:border-white/10 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-[#2a2a2c] flex items-center justify-center shrink-0">
-                   <ExternalLink size={20} className="text-[#8b8b93]" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#8b8b93] block mb-1">G2 Intent / Website</span>
-                      <h3 className="text-white font-medium text-base">High Engagement: ROI & Pricing</h3>
-                    </div>
-                    <span className="text-xs text-[#8b8b93]">July 17th</span>
-                  </div>
-                  <p className="text-sm text-[#8b8b93] leading-relaxed mt-1 mb-4">
-                    Multiple sessions originating from Abbott IP addresses viewing Enterprise Trailer Pricing and calculating ROI.
-                  </p>
-                  
-                  <div className="flex items-center gap-3 border-t border-white/5 pt-4">
-                    {isWebPromoted ? (
-                      <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-4 py-2 rounded-lg border border-indigo-500/20 flex items-center gap-2">
-                        <Target size={14} /> Active in Projects
-                      </span>
-                    ) : (
-                      <>
-                        <button 
-                          onClick={() => {
-                            addProject({
-                              id: `p-${Date.now()}`,
-                              name: 'G2 Intent Lead',
-                              accountName: 'Abbott Laboratories',
-                              value: 0,
-                              origin: 'manual',
-                              stage: 'new',
-                              signalId: 'sig-3'
-                            });
-                            onNavigate?.('deals');
-                          }}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                          <Plus size={14} /> Promote to Project
-                        </button>
-                        <button className="text-[#8b8b93] hover:text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors border border-white/5">
-                          Dismiss
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
+                );
+              })}
             </div>
           </div>
         ) : activeTab === 'activity' ? (
@@ -697,11 +677,21 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                       </div>
 
                       <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-                        <button className="flex-1 bg-white/[0.03] hover:bg-white/[0.08] text-white text-xs font-medium py-2 rounded-lg transition-colors border border-white/5">
-                          Draft Email
-                        </button>
-                        <button className="flex-1 bg-white/[0.03] hover:bg-white/[0.08] text-white text-xs font-medium py-2 rounded-lg transition-colors border border-white/5">
-                          Send SMS
+                        <button
+                          onClick={() => {
+                            setOutreachContactId(c.id);
+                            setOutreachLoading(true);
+                            setOutreachResult(null);
+                            outreachApi.generate(accountId, c.id)
+                              .then(res => setOutreachResult((res.data as any).message_text || (res.data as any).message || 'Outreach generated.'))
+                              .catch(() => setOutreachResult('Failed to generate outreach.'))
+                              .finally(() => setOutreachLoading(false));
+                          }}
+                          disabled={outreachLoading && outreachContactId === c.id}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2 rounded-lg transition-colors shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5"
+                        >
+                          {outreachLoading && outreachContactId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                          {outreachLoading && outreachContactId === c.id ? 'Generating...' : 'Draft Email'}
                         </button>
                         <div className="relative">
                           <button
@@ -740,6 +730,22 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                           )}
                         </div>
                       </div>
+
+                      {/* Outreach result */}
+                      {outreachContactId === c.id && outreachResult && (
+                        <div className="mt-3 bg-[#141416] border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] text-[#8b8b93] uppercase tracking-wider font-semibold">Generated Outreach</span>
+                            <button
+                              onClick={() => navigator.clipboard.writeText(outreachResult)}
+                              className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                          <p className="text-xs text-[#e2e2e5] whitespace-pre-wrap leading-relaxed">{outreachResult}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

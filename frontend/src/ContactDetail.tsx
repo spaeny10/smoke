@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2 } from 'lucide-react';
-import { contactsApi, type Contact } from './api';
+import { ArrowLeft, Mail, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2, Copy } from 'lucide-react';
+import { contactsApi, outreachApi, activitiesApi, type Contact, type Activity } from './api';
 
 interface ContactDetailProps {
   contactId: string;
@@ -26,6 +26,10 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', title: '', email: '', phone: '' });
+  const [outreachLoading, setOutreachLoading] = useState(false);
+  const [outreachResult, setOutreachResult] = useState<string | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -33,6 +37,14 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
       .then(res => {
         setContact(res.data);
         setEditForm({ name: res.data.name, title: res.data.title || '', email: res.data.email || '', phone: res.data.phone || '' });
+        // Fetch activities for this contact's account
+        if (res.data.account_id) {
+          setActivitiesLoading(true);
+          activitiesApi.list({ account_id: res.data.account_id, limit: 20 })
+            .then(aRes => setActivities(aRes.data.items))
+            .catch(() => {})
+            .finally(() => setActivitiesLoading(false));
+        }
       })
       .catch(() => setContact(null))
       .finally(() => setLoading(false));
@@ -213,11 +225,37 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-white/5">
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#202022] hover:bg-indigo-600 border border-white/5 hover:border-indigo-500 rounded-lg text-sm text-white transition-all group">
-                    <MessageSquare size={16} className="text-[#8b8b93] group-hover:text-white transition-colors" />
-                    Send Message
+                <div className="pt-4 border-t border-white/5 space-y-3">
+                  <button
+                    onClick={() => {
+                      if (!contact) return;
+                      setOutreachLoading(true);
+                      setOutreachResult(null);
+                      outreachApi.generate(contact.account_id, contact.id)
+                        .then(res => setOutreachResult((res.data as any).message_text || (res.data as any).message || 'Outreach generated.'))
+                        .catch(() => setOutreachResult('Failed to generate outreach.'))
+                        .finally(() => setOutreachLoading(false));
+                    }}
+                    disabled={outreachLoading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 border border-indigo-500/20 rounded-lg text-sm text-white transition-all shadow-lg shadow-indigo-500/20"
+                  >
+                    {outreachLoading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                    {outreachLoading ? 'Generating...' : 'Generate Outreach'}
                   </button>
+                  {outreachResult && (
+                    <div className="bg-[#141416] border border-white/10 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] text-[#8b8b93] uppercase tracking-wider font-semibold">Generated Outreach</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(outreachResult)}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                        >
+                          <Copy size={10} /> Copy
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#e2e2e5] whitespace-pre-wrap leading-relaxed">{outreachResult}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -272,11 +310,43 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
                 <h3 className="text-sm font-medium text-white">Recent Activity</h3>
               </div>
 
-              <div className="flex flex-col items-center justify-center py-12 text-[#8b8b93]">
-                <MessageSquare size={32} className="mb-4 opacity-30" />
-                <p className="text-sm">Activity tracking coming soon</p>
-                <p className="text-xs mt-1">Emails, calls, and meetings will appear here.</p>
-              </div>
+              {activitiesLoading ? (
+                <div className="flex items-center justify-center py-12 text-[#8b8b93]">
+                  <Loader2 size={20} className="animate-spin mr-2" />
+                  <span className="text-sm">Loading activities...</span>
+                </div>
+              ) : activities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-[#8b8b93]">
+                  <MessageSquare size={32} className="mb-4 opacity-30" />
+                  <p className="text-sm">No activities logged yet</p>
+                  <p className="text-xs mt-1">Emails, calls, and meetings will appear here.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activities.map(a => (
+                    <div key={a.id} className="flex gap-3 p-3 rounded-lg bg-[#202022] border border-white/5">
+                      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                        a.channel === 'call' ? 'text-green-400 bg-green-500/10' :
+                        a.channel === 'email' ? 'text-blue-400 bg-blue-500/10' :
+                        a.channel === 'meeting' ? 'text-purple-400 bg-purple-500/10' : 'text-[#8b8b93] bg-[#1a1a1c]'
+                      }`}>
+                        {a.channel === 'email' ? <Mail size={12} /> : <MessageSquare size={12} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b8b93]">{a.channel}</span>
+                          <span className="text-[9px] text-[#8b8b93]">{a.direction}</span>
+                          {a.is_auto_logged && <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-1 py-0.5 rounded font-medium">Auto</span>}
+                        </div>
+                        <p className="text-xs text-[#e2e2e5] truncate">{a.summary}</p>
+                        <span className="text-[9px] text-[#8b8b93]">
+                          {new Date(a.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>

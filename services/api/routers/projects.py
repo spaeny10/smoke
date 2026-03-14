@@ -84,6 +84,7 @@ async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)
         name=data.name,
         description=data.description,
         primary_contact_id=data.primary_contact_id,
+        signal_id=data.signal_id,
         stage=data.stage,
         origin=data.origin,
         estimated_value=data.estimated_value,

@@ -111,6 +111,7 @@ class ProjectCreate(BaseModel):
     name: str
     description: Optional[str] = None
     primary_contact_id: Optional[str] = None
+    signal_id: Optional[str] = None
     stage: Optional[str] = "new"
     origin: Optional[str] = "manual"
     estimated_value: Optional[float] = 0.0
@@ -130,6 +131,7 @@ class ProjectRead(BaseModel):
     id: str
     account_id: str
     primary_contact_id: Optional[str] = None
+    signal_id: Optional[str] = None
     name: str
     description: Optional[str] = None
     stage: str

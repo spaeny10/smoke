@@ -367,7 +367,7 @@ export default function App() {
           setActiveTab('projectDetail');
         }} />
       ) : activeTab === 'projectDetail' && selectedProjectId ? (
-        <ProjectDetail projectId={selectedProjectId} onNavigate={(tab) => setActiveTab(tab as any)} />
+        <ProjectDetail projectId={selectedProjectId} onNavigate={(tab) => setActiveTab(tab as any)} onAccountClick={(id) => { setSelectedAccountId(id); setActiveTab('companyDetail'); }} />
       ) : activeTab === 'odin' ? (
         <SmokeAIDashboard onAccountClick={(id: string) => { setSelectedAccountId(id); setActiveTab('companyDetail'); }} />
       ) : activeTab === 'sequences' ? (

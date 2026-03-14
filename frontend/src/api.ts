@@ -75,6 +75,7 @@ export interface Project {
   id: string;
   account_id: string;
   primary_contact_id: string | null;
+  signal_id: string | null;
   name: string;
   description: string | null;
   stage: string;
@@ -193,7 +194,7 @@ export const projectsApi = {
     api.get<PaginatedResponse<Project>>('/api/projects', { params }),
   get: (id: string) =>
     api.get<Project>(`/api/projects/${id}`),
-  create: (data: { account_id: string; name: string; description?: string; stage?: string; origin?: string; estimated_value?: number }) =>
+  create: (data: { account_id: string; name: string; description?: string; signal_id?: string; stage?: string; origin?: string; estimated_value?: number }) =>
     api.post<Project>('/api/projects', data),
   update: (id: string, data: Partial<Project>) =>
     api.put<Project>(`/api/projects/${id}`, data),

@@ -167,6 +167,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
       account_id: selectedSignal.account_id,
       name: projectName.trim(),
       description: selectedSignal.detail || selectedSignal.title,
+      signal_id: selectedSignal.id,
       stage: 'new',
       origin: 'signal',
       estimated_value: parseFloat(projectValue) || 0,
