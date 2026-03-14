@@ -43,6 +43,8 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   const [outreachLoading, setOutreachLoading] = useState(false);
   const [outreachResult, setOutreachResult] = useState<string | null>(null);
   const [dismissingSignalId, setDismissingSignalId] = useState<string | null>(null);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverMsg, setDiscoverMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -639,10 +641,39 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 👥 Key Contacts
               </h2>
-              <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                <Plus size={14} /> Add Contact
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setDiscoverLoading(true);
+                    setDiscoverMsg(null);
+                    accountsApi.discoverContacts(accountId)
+                      .then(res => {
+                        setDiscoverMsg(res.data.message);
+                        // Auto-refresh contacts after delays to pick up new results
+                        setTimeout(() => accountsApi.getContacts(accountId).then(r => setContacts(r.data)).catch(() => {}), 5000);
+                        setTimeout(() => accountsApi.getContacts(accountId).then(r => setContacts(r.data)).catch(() => {}), 15000);
+                      })
+                      .catch(() => setDiscoverMsg('Failed to start discovery.'))
+                      .finally(() => setDiscoverLoading(false));
+                  }}
+                  disabled={discoverLoading}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                >
+                  {discoverLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                  {discoverLoading ? 'Discovering...' : 'Discover Contacts'}
+                </button>
+                <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
+                  <Plus size={14} /> Add Contact
+                </button>
+              </div>
             </div>
+
+            {discoverMsg && (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin" />
+                {discoverMsg}
+              </div>
+            )}
 
             {contacts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-[#8b8b93]">
@@ -664,11 +695,22 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                             <p className="text-xs text-[#8b8b93]">{c.title || 'No title'}</p>
                           </div>
                         </div>
-                        {c.role_category && (
-                          <span className="bg-green-500/10 text-green-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
-                            {c.role_category}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {c.source && c.source.includes('linkedin') && (
+                            <span className="bg-blue-500/10 text-blue-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">LinkedIn</span>
+                          )}
+                          {c.source === 'company_website' && (
+                            <span className="bg-purple-500/10 text-purple-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">Website</span>
+                          )}
+                          {c.source === 'csv' && (
+                            <span className="bg-gray-500/10 text-gray-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">CSV</span>
+                          )}
+                          {c.role_category && (
+                            <span className="bg-green-500/10 text-green-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                              {c.role_category}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="space-y-2 mb-4">
@@ -843,6 +885,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           <PropertyRow label="Stage" value={account.deal_stage} icon="📊" />
           <PropertyRow label="Segment" value={account.segment || '-'} icon="🏗️" />
           <PropertyRow label="Region" value={account.region || '-'} icon="🌎" />
+          <PropertyRow label="Website" value={account.website || '-'} icon="🌐" />
           <PropertyRow label="Employees" value={account.employee_count ? account.employee_count.toLocaleString() : '-'} icon="👥" />
           <PropertyRow label="Score Trend" value={account.score_trend} icon="📈" />
           <PropertyRow label="City" value={account.hq_city || '-'} icon="📍" />

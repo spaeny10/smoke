@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, case
 from datetime import datetime, timezone, timedelta
 
+import asyncio
+
 from packages.db.session import get_db
 from packages.db.models import Account, Contact, Signal, Project, User
 from packages.matching.utils import normalize_company_name
@@ -363,6 +365,22 @@ async def enrich_account(
     await db.commit()
     await db.refresh(account)
     return AccountRead.model_validate(account)
+
+
+@router.post("/{account_id}/discover-contacts")
+async def discover_contacts(
+    account_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Fire-and-forget: scrape LinkedIn + company websites for contacts."""
+    account = await db.scalar(select(Account).where(Account.id == account_id))
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    from services.pipeline_jobtitles.main import fetch_jobtitle_data
+    asyncio.create_task(fetch_jobtitle_data(account_id=account_id))
+
+    return {"status": "started", "message": f"Contact discovery started for {account.name}. New contacts will appear shortly."}
 
 
 @router.post("/bulk-enrich")

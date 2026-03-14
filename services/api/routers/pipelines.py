@@ -64,7 +64,13 @@ async def _run_pipelines():
             after_osha = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
         results["osha"] = after_osha - after_news
 
-        results["total_new"] = after_osha - before
+        from services.pipeline_jobtitles.main import fetch_jobtitle_data
+        await fetch_jobtitle_data()
+        async with async_session() as db:
+            after_jobtitles = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        results["jobtitles"] = after_jobtitles - after_osha
+
+        results["total_new"] = after_jobtitles - before
 
         _scan_state["last_result"] = results
         _scan_state["last_run"] = datetime.now(timezone.utc).isoformat()

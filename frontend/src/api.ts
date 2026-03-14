@@ -44,6 +44,7 @@ export interface Account {
   hq_city: string | null;
   hq_state: string | null;
   hq_zip: string | null;
+  website: string | null;
   region: string | null;
   employee_count: number | null;
   segment: string | null;
@@ -174,6 +175,8 @@ export const accountsApi = {
     api.get<Signal[]>(`/api/accounts/${id}/signals`),
   getProjects: (id: string) =>
     api.get<Project[]>(`/api/accounts/${id}/projects`),
+  discoverContacts: (id: string) =>
+    api.post<{ status: string; message: string }>(`/api/accounts/${id}/discover-contacts`),
 };
 
 export const contactsApi = {

@@ -20,6 +20,7 @@ class AccountCreate(BaseModel):
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
     hq_zip: Optional[str] = None
+    website: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
@@ -32,6 +33,7 @@ class AccountUpdate(BaseModel):
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
     hq_zip: Optional[str] = None
+    website: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None
@@ -53,6 +55,7 @@ class AccountRead(BaseModel):
     hq_city: Optional[str] = None
     hq_state: Optional[str] = None
     hq_zip: Optional[str] = None
+    website: Optional[str] = None
     region: Optional[str] = None
     employee_count: Optional[int] = None
     segment: Optional[str] = None

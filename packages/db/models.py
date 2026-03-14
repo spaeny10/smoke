@@ -54,6 +54,7 @@ class Account(Base):
     hq_city = Column(String)
     hq_state = Column(String)
     hq_zip = Column(String)
+    website = Column(String)
     region = Column(String)
     employee_count = Column(Integer)
     segment = Column(String) # 'Commercial', 'Multifamily', 'Mixed'
