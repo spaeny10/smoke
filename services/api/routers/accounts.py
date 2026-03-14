@@ -9,12 +9,13 @@ import asyncio
 
 from packages.db.session import get_db
 from packages.db.models import Account, Contact, Signal, Project, User
-from packages.matching.utils import normalize_company_name
+from packages.matching.utils import normalize_company_name, check_duplicate_account
 from services.api.schemas import (
     AccountCreate, AccountUpdate, AccountRead,
     ContactRead, SignalRead, ProjectRead,
     PaginatedResponse, PriorityQueueItem, PriorityQueueResponse,
     BulkAccountUpdate, BulkAccountDelete,
+    DuplicateCheckResponse, DuplicateMatch,
 )
 from services.api.auth import get_current_user, get_visible_account_ids, require_auth, require_director
 
@@ -202,6 +203,19 @@ async def enrich_account_from_signals(account: Account, db: AsyncSession):
                 break
 
 
+@router.get("/check-duplicate", response_model=DuplicateCheckResponse)
+async def check_duplicate(
+    name: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check if a company name matches any existing account."""
+    matches = await check_duplicate_account(name, db)
+    return DuplicateCheckResponse(
+        has_duplicate=len(matches) > 0,
+        matches=[DuplicateMatch(**m) for m in matches],
+    )
+
+
 @router.get("/{account_id}", response_model=AccountRead)
 async def get_account(account_id: str, db: AsyncSession = Depends(get_db)):
     account = await db.scalar(select(Account).where(Account.id == account_id))
@@ -211,7 +225,23 @@ async def get_account(account_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=AccountRead, status_code=201)
-async def create_account(data: AccountCreate, db: AsyncSession = Depends(get_db)):
+async def create_account(
+    data: AccountCreate,
+    force: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+):
+    # Check for duplicates unless force=true
+    if not force:
+        matches = await check_duplicate_account(data.name, db)
+        if matches:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "A similar company already exists",
+                    "matches": matches,
+                },
+            )
+
     account = Account(
         name=data.name,
         name_normalized=normalize_company_name(data.name),

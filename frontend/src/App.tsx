@@ -14,6 +14,7 @@ import {
   ChevronDown, 
   Paperclip, 
   Send,
+  Repeat,
   Info,
   Loader2,
   PieChart as PieChartIcon,
@@ -222,14 +223,6 @@ export default function App() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
           
-          <div 
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'journeys' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('journeys')}
-          >
-            <TrendingUp size={18} />
-            <span className="text-sm font-medium">Journeys</span>
-          </div>
-          
           <div
             className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => setActiveTab('companies')}
@@ -297,8 +290,8 @@ export default function App() {
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'sequences' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => setActiveTab('sequences')}
           >
-            <Send size={18} />
-            <span className="text-sm font-medium">Sequences</span>
+            <Repeat size={18} />
+            <span className="text-sm font-medium">Loops</span>
           </div>
         </div>
 

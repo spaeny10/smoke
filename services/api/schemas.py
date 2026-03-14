@@ -431,3 +431,17 @@ class PriorityQueueResponse(BaseModel):
 class OutreachGenerateRequest(BaseModel):
     account_id: str
     contact_id: str
+
+
+# ── Duplicate Check ──────────────────────────────────────
+
+class DuplicateMatch(BaseModel):
+    id: str
+    name: str
+    score: float
+    category: str
+
+
+class DuplicateCheckResponse(BaseModel):
+    has_duplicate: bool
+    matches: List[DuplicateMatch] = []

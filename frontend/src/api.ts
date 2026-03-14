@@ -159,8 +159,10 @@ export const accountsApi = {
   },
   get: (id: string) =>
     api.get<Account>(`/api/accounts/${id}`),
-  create: (data: Partial<Account>) =>
-    api.post<Account>('/api/accounts', data),
+  create: (data: Partial<Account>, force?: boolean) =>
+    api.post<Account>(`/api/accounts${force ? '?force=true' : ''}`, data),
+  checkDuplicate: (name: string) =>
+    api.get<{ has_duplicate: boolean; matches: Array<{ id: string; name: string; score: number; category: string }> }>('/api/accounts/check-duplicate', { params: { name } }),
   update: (id: string, data: Partial<Account>) =>
     api.put<Account>(`/api/accounts/${id}`, data),
   delete: (id: string) =>

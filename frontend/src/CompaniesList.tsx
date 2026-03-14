@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, RefreshCw, Loader2, Upload, X, CheckCircle2, AlertCircle, Star, ChevronDown, Plus, ArrowUpCircle } from 'lucide-react';
 import { accountsApi, bulkApi, usersApi, savedViewsApi, enrichApi, type Account, type ImportResult, type UserProfile, type SavedView } from './api';
 
@@ -52,6 +52,9 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
   const [showViewsDropdown, setShowViewsDropdown] = useState(false);
   const [showSaveViewInput, setShowSaveViewInput] = useState(false);
   const [viewName, setViewName] = useState('');
+  const [dupWarning, setDupWarning] = useState<{ id: string; name: string; score: number } | null>(null);
+  const [checkingDup, setCheckingDup] = useState(false);
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
@@ -138,6 +141,30 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
     return () => clearTimeout(timer);
   }, [search]);
 
+  // Debounced duplicate check when typing in Add Company modal
+  const checkDuplicate = useCallback((name: string) => {
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (!name.trim() || name.trim().length < 3) {
+      setDupWarning(null);
+      setCheckingDup(false);
+      return;
+    }
+    setCheckingDup(true);
+    dupTimerRef.current = setTimeout(() => {
+      accountsApi.checkDuplicate(name.trim())
+        .then(res => {
+          if (res.data.has_duplicate && res.data.matches.length > 0) {
+            const m = res.data.matches[0];
+            setDupWarning({ id: m.id, name: m.name, score: m.score });
+          } else {
+            setDupWarning(null);
+          }
+        })
+        .catch(() => setDupWarning(null))
+        .finally(() => setCheckingDup(false));
+    }, 400);
+  }, []);
+
   const handleFileUpload = (file: File) => {
     setImporting(true);
     setImportError('');
@@ -163,13 +190,20 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       hq_state: addForm.hq_state || undefined,
       segment: addForm.segment || undefined,
       tier: addForm.tier,
-    } as Parameters<typeof accountsApi.create>[0])
+    } as Parameters<typeof accountsApi.create>[0], !!dupWarning)
       .then(() => {
         setShowAddCompany(false);
         setAddForm({ name: '', hq_city: '', hq_state: '', segment: '', tier: 1 });
+        setDupWarning(null);
         fetchAccounts(search);
       })
-      .catch(() => {})
+      .catch((err) => {
+        // Handle 409 race condition
+        if (err.response?.status === 409 && err.response?.data?.detail?.matches) {
+          const m = err.response.data.detail.matches[0];
+          setDupWarning({ id: m.id, name: m.name, score: m.score });
+        }
+      })
       .finally(() => setAddSaving(false));
   };
 
@@ -575,11 +609,11 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
 
       {/* Add Company Modal */}
       {showAddCompany && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => !addSaving && setShowAddCompany(false)}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => { if (!addSaving) { setShowAddCompany(false); setDupWarning(null); } }}>
           <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-lg font-semibold text-white">Add Company</h2>
-              <button onClick={() => !addSaving && setShowAddCompany(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
+              <button onClick={() => { if (!addSaving) { setShowAddCompany(false); setDupWarning(null); } }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -589,12 +623,30 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                 <input
                   type="text"
                   value={addForm.name}
-                  onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                  onChange={e => { setAddForm(f => ({ ...f, name: e.target.value })); checkDuplicate(e.target.value); }}
                   placeholder="e.g. Turner Construction"
                   className="w-full bg-[#0a0a0b] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-[#8b8b93]"
                   required
                   autoFocus
                 />
+                {checkingDup && <p className="text-xs text-[#8b8b93] mt-1">Checking for duplicates...</p>}
+                {dupWarning && (
+                  <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <p className="text-sm text-yellow-400 font-medium">
+                      Similar company found: "{dupWarning.name}" ({Math.round(dupWarning.score)}% match)
+                    </p>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onCompanyClick(dupWarning.id)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        View existing
+                      </button>
+                      <span className="text-xs text-[#8b8b93]">or click "Add Anyway" below</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -660,7 +712,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                 className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
                 {addSaving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                {addSaving ? 'Creating...' : 'Add Company'}
+                {addSaving ? 'Creating...' : dupWarning ? 'Add Anyway' : 'Add Company'}
               </button>
             </form>
           </div>

@@ -1,5 +1,7 @@
 import re
 from rapidfuzz import fuzz, process
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 LEGAL_SUFFIXES_REGEX = re.compile(
     r'\b(llc|inc|corp|co|ltd|lp|llp|company|contractors|construction|builders|group|partners|development)\b',
@@ -63,3 +65,59 @@ def fuzzy_match_company(normalized_name: str, target_dict: dict[str, str]) -> tu
         return target_dict[best_str], score, category
         
     return None, score, category
+
+
+async def check_duplicate_account(
+    name: str,
+    db: AsyncSession,
+    exclude_id: str | None = None,
+) -> list[dict]:
+    """
+    Check if an account name matches existing accounts.
+    Returns list of matches with id, name, score, category.
+    Only surfaces scores >= 85 (auto_match + flagged_auto_match).
+    """
+    from packages.db.models import Account
+
+    normalized = normalize_company_name(name)
+    if not normalized:
+        return []
+
+    # Load all existing accounts
+    query = select(Account.id, Account.name, Account.name_normalized)
+    if exclude_id:
+        query = query.where(Account.id != exclude_id)
+    rows = (await db.execute(query)).all()
+
+    if not rows:
+        return []
+
+    # 1. Exact normalized match
+    matches = []
+    for row in rows:
+        if row.name_normalized == normalized:
+            matches.append({
+                "id": str(row.id),
+                "name": row.name,
+                "score": 100.0,
+                "category": "exact",
+            })
+
+    if matches:
+        return matches
+
+    # 2. Fuzzy match against all normalized names
+    target_dict = {row.name_normalized: str(row.id) for row in rows}
+    name_lookup = {str(row.id): row.name for row in rows}
+
+    best_id, score, category = fuzzy_match_company(normalized, target_dict)
+
+    if best_id and category in ("auto_match", "flagged_auto_match"):
+        matches.append({
+            "id": best_id,
+            "name": name_lookup[best_id],
+            "score": round(score, 1),
+            "category": category,
+        })
+
+    return matches
