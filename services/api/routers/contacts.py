@@ -115,6 +115,34 @@ async def update_contact(
     return read
 
 
+@router.post("/{contact_id}/find-email")
+async def find_email(contact_id: str, db: AsyncSession = Depends(get_db)):
+    """Guess email for a contact based on name + account website domain."""
+    contact = await db.scalar(select(Contact).where(Contact.id == contact_id))
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    if contact.email:
+        return {"email": contact.email, "method": "existing", "candidates": [contact.email]}
+
+    account = await db.scalar(select(Account).where(Account.id == contact.account_id))
+    if not account or not account.website:
+        raise HTTPException(status_code=400, detail="Account has no website — cannot guess email domain")
+
+    from services.pipeline_jobtitles.email_guesser import guess_emails
+    candidates = guess_emails(contact.name, account.website)
+
+    # Auto-set the most likely pattern (first.last@domain)
+    if candidates:
+        contact.email = candidates[0]
+        await db.commit()
+        await db.refresh(contact)
+
+    read = ContactRead.model_validate(contact)
+    if account:
+        read.account_name = account.name
+    return {"email": candidates[0] if candidates else None, "method": "guessed", "candidates": candidates, "contact": read}
+
+
 @router.delete("/{contact_id}", status_code=204)
 async def delete_contact(contact_id: str, db: AsyncSession = Depends(get_db)):
     contact = await db.scalar(select(Contact).where(Contact.id == contact_id))

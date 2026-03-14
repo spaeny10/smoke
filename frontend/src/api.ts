@@ -190,6 +190,8 @@ export const contactsApi = {
     api.put<Contact>(`/api/contacts/${id}`, data),
   delete: (id: string) =>
     api.delete(`/api/contacts/${id}`),
+  findEmail: (id: string) =>
+    api.post<{ email: string | null; method: string; candidates: string[]; contact?: Contact }>(`/api/contacts/${id}/find-email`),
 };
 
 export const projectsApi = {

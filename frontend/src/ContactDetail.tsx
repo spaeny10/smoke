@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2, Copy } from 'lucide-react';
+import { ArrowLeft, Mail, Building2, Edit2, Check, X, User, Clock, MessageSquare, Loader2, Copy, ExternalLink } from 'lucide-react';
 import { contactsApi, outreachApi, activitiesApi, type Contact, type Activity } from './api';
 
 interface ContactDetailProps {
@@ -202,10 +202,24 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
                       onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                       className="text-sm bg-[#141416] border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none focus:border-indigo-500 w-full"
                     />
-                  ) : (
+                  ) : contact.email ? (
                     <a href={`mailto:${contact.email}`} className="text-sm text-[#e2e2e5] hover:text-indigo-400 hover:underline transition-colors block p-2 -ml-2 rounded-md hover:bg-[#202022]">
-                      {contact.email || 'Not provided'}
+                      {contact.email}
                     </a>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        contactsApi.findEmail(contact.id)
+                          .then(res => {
+                            if (res.data.contact) setContact(res.data.contact);
+                            else if (res.data.email) setContact(prev => prev ? { ...prev, email: res.data.email! } : prev);
+                          })
+                          .catch(() => {});
+                      }}
+                      className="text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors p-2 -ml-2 rounded-md hover:bg-[#202022]"
+                    >
+                      Find Email
+                    </button>
                   )}
                 </div>
 
@@ -224,6 +238,20 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
                     </a>
                   )}
                 </div>
+
+                {contact.linkedin_url && (
+                  <div>
+                    <label className="text-xs text-[#8b8b93] font-medium uppercase tracking-wider mb-1 block">LinkedIn</label>
+                    <a
+                      href={contact.linkedin_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors flex items-center gap-1.5 p-2 -ml-2 rounded-md hover:bg-[#202022]"
+                    >
+                      <ExternalLink size={14} /> View Profile
+                    </a>
+                  </div>
+                )}
 
                 <div className="pt-4 border-t border-white/5 space-y-3">
                   <button
@@ -263,9 +291,19 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
             <div className="bg-[#1a1a1c] border border-white/5 rounded-xl p-5">
               <h3 className="text-sm font-medium text-white mb-4">Details</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-[#8b8b93]">
+                <div className="flex justify-between items-center text-[#8b8b93]">
                   <span>Source</span>
-                  <span className="text-[#e2e2e5]">{contact.source || 'Unknown'}</span>
+                  <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md ${
+                    contact.source?.includes('linkedin') ? 'bg-blue-500/10 text-blue-400' :
+                    contact.source === 'company_website' ? 'bg-purple-500/10 text-purple-400' :
+                    contact.source === 'csv' ? 'bg-gray-500/10 text-gray-400' :
+                    'bg-[#202022] text-[#e2e2e5]'
+                  }`}>
+                    {contact.source?.includes('linkedin') ? 'LinkedIn' :
+                     contact.source === 'company_website' ? 'Website' :
+                     contact.source === 'csv' ? 'CSV' :
+                     contact.source || 'Manual'}
+                  </span>
                 </div>
                 <div className="flex justify-between text-[#8b8b93]">
                   <span>Added</span>

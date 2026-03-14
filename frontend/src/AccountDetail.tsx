@@ -1,24 +1,47 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star, Phone, Mail, MessageSquare, FileText, Send } from 'lucide-react';
-import { accountsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, projectsApi, outreachApi, signalsApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence, type Project } from './api';
+import { accountsApi, contactsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, projectsApi, outreachApi, signalsApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence, type Project } from './api';
 
-const intentData = [
-  { date: 'May 8', score: 68 },
-  { date: 'May 15', score: 71 },
-  { date: 'May 22', score: 55 },
-  { date: 'May 29', score: 70 },
-  { date: 'Jun 5', score: 25 },
-  { date: 'Jun 12', score: 22 },
-  { date: 'Jun 19', score: 35 },
-  { date: 'Jun 26', score: 95 },
-  { date: 'Jul 3', score: 72 },
-  { date: 'Jul 10', score: 58 },
-  { date: 'Jul 17', score: 60 },
-  { date: 'Jul 24', score: 55 },
-  { date: 'Jul 31', score: 10 },
-  { date: 'Aug 7', score: 77 },
-];
+/** Build weekly score chart data from real signals. */
+function buildIntentData(signals: Signal[]) {
+  if (signals.length === 0) return [];
+  const sorted = [...signals].sort((a, b) => new Date(a.detected_at).getTime() - new Date(b.detected_at).getTime());
+  const buckets: Record<string, number> = {};
+  for (const s of sorted) {
+    const d = new Date(s.detected_at);
+    // Week key: Monday of that week
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d);
+    monday.setDate(diff);
+    const key = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    buckets[key] = (buckets[key] || 0) + s.score_contribution;
+  }
+  // Accumulate running total
+  let running = 0;
+  return Object.entries(buckets).map(([date, added]) => {
+    running += added;
+    return { date, score: running };
+  });
+}
+
+/** Get top signal contributors for the score breakdown. */
+function getScoreBreakdown(signals: Signal[]) {
+  // Group by source
+  const bySource: Record<string, { total: number; count: number; titles: string[] }> = {};
+  for (const s of signals) {
+    const src = s.source;
+    if (!bySource[src]) bySource[src] = { total: 0, count: 0, titles: [] };
+    bySource[src].total += s.score_contribution;
+    bySource[src].count += 1;
+    if (bySource[src].titles.length < 2) bySource[src].titles.push(s.title);
+  }
+  return Object.entries(bySource)
+    .map(([source, data]) => ({ source, ...data }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+}
 
 export default function AccountDetail({ accountId, onNavigate }: { accountId: string; onNavigate?: (tab: string) => void }) {
   const [activeTab, setActiveTab] = React.useState<'overview' | 'signals' | 'people' | 'activity'>('overview');
@@ -45,6 +68,9 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   const [dismissingSignalId, setDismissingSignalId] = useState<string | null>(null);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverMsg, setDiscoverMsg] = useState<string | null>(null);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [addContactForm, setAddContactForm] = useState({ name: '', title: '', role_category: '', email: '', phone: '' });
+  const [addContactSaving, setAddContactSaving] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -250,93 +276,57 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
             {/* Intent Chart Box */}
             <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6 relative mb-6">
               <div className="flex justify-between items-start mb-6">
-                <h2 className="text-white font-semibold">Intent</h2>
-                <div className="text-2xl font-bold text-orange-500">🔥 77</div>
+                <h2 className="text-white font-semibold">Score Trend</h2>
+                <div className="text-2xl font-bold text-orange-500">{Math.round(account.composite_score)}</div>
               </div>
-              
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={intentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorIntent" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#8b8b93' }} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fill: '#8b8b93' }}
-                      domain={[0, 100]}
-                      ticks={[0, 20, 40, 60, 80, 100]}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#202022', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                      itemStyle={{ color: '#f97316' }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="#f97316" 
-                      strokeWidth={2} 
-                      fillOpacity={1} 
-                      fill="url(#colorIntent)" 
-                      activeDot={{ r: 6, fill: '#f97316', stroke: '#202022', strokeWidth: 2 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              
+
+              {(() => {
+                const chartData = buildIntentData(signals);
+                return chartData.length > 1 ? (
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorIntent" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#8b8b93' }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#8b8b93' }} />
+                        <Tooltip contentStyle={{ backgroundColor: '#202022', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} itemStyle={{ color: '#f97316' }} />
+                        <Area type="monotone" dataKey="score" stroke="#f97316" strokeWidth={2} fillOpacity={1} fill="url(#colorIntent)" activeDot={{ r: 6, fill: '#f97316', stroke: '#202022', strokeWidth: 2 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-32 flex items-center justify-center text-[#8b8b93] text-sm">Not enough signal data for a chart yet.</div>
+                );
+              })()}
+
               <div className="mt-6 pt-6 border-t border-white/5">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-sm font-medium text-white">Why is this score 77?</h3>
-                  <span className="text-xs text-[#8b8b93] bg-[#202022] px-2 py-1 rounded-md border border-white/5">Past 30 Days</span>
+                  <h3 className="text-sm font-medium text-white">Why is this score {Math.round(account.composite_score)}?</h3>
+                  <span className="text-xs text-[#8b8b93] bg-[#202022] px-2 py-1 rounded-md border border-white/5">All Signals</span>
                 </div>
-                
-                <div className="space-y-3">
-                  {/* Positive Contributors */}
-                  <div className="flex items-start gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-sm shrink-0">
-                      +35
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#e2e2e5] mb-1">High-Intent Executive Activity</p>
-                      <p className="text-xs text-[#8b8b93] leading-relaxed">
-                        CRO Sophia Ramirez and CTO Marcus Chen visited the ROI calculator and API documentation 6 times collectively between July 8-17.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-sm shrink-0">
-                      +25
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#e2e2e5] mb-1">Permit & Procore Signals</p>
-                      <p className="text-xs text-[#8b8b93] leading-relaxed">
-                        Account intelligence parsed 2 newly approved building permits in Chicago and 1 active Procore Bid for a $45M commercial development.
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-start gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-sm shrink-0">
-                      +17
+                <div className="space-y-3">
+                  {getScoreBreakdown(signals).map((group) => (
+                    <div key={group.source} className="flex items-start gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/10 hover:bg-green-500/10 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-sm shrink-0">
+                        +{group.total}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-[#e2e2e5] mb-1">{group.source} ({group.count} signal{group.count !== 1 ? 's' : ''})</p>
+                        <p className="text-xs text-[#8b8b93] leading-relaxed">
+                          {group.titles.join(' • ')}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#e2e2e5] mb-1">Company-wide Engagement</p>
-                      <p className="text-xs text-[#8b8b93] leading-relaxed">
-                        Multiple users across revenue/marketing teams watched demo replays and accessed Salesforce integration content.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
+                  {signals.length === 0 && (
+                    <div className="text-center py-4 text-[#8b8b93] text-sm">No signals contributing to score yet.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -662,7 +652,10 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   {discoverLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
                   {discoverLoading ? 'Discovering...' : 'Discover Contacts'}
                 </button>
-                <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20">
+                <button
+                  onClick={() => setShowAddContact(true)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                >
                   <Plus size={14} /> Add Contact
                 </button>
               </div>
@@ -714,7 +707,27 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                       </div>
 
                       <div className="space-y-2 mb-4">
-                        <p className="text-sm text-[#8b8b93] flex items-center gap-2"><span className="w-16">Email:</span> {c.email || '-'}</p>
+                        <div className="text-sm text-[#8b8b93] flex items-center gap-2">
+                          <span className="w-16">Email:</span>
+                          {c.email ? (
+                            <span className="text-[#e2e2e5]">{c.email}</span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                contactsApi.findEmail(c.id)
+                                  .then(res => {
+                                    if (res.data.email) {
+                                      setContacts(prev => prev.map(cc => cc.id === c.id ? { ...cc, email: res.data.email! } : cc));
+                                    }
+                                  })
+                                  .catch(() => {});
+                              }}
+                              className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors"
+                            >
+                              Find Email
+                            </button>
+                          )}
+                        </div>
                         <p className="text-sm text-[#8b8b93] flex items-center gap-2"><span className="w-16">Phone:</span> {c.phone || '-'}</p>
                       </div>
 
@@ -868,6 +881,108 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Contact Modal */}
+      {showAddContact && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowAddContact(false)}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <h2 className="text-lg font-semibold text-white">Add Contact</h2>
+              <button onClick={() => setShowAddContact(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
+                <AlertCircle size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs text-[#8b8b93] block mb-1.5">Full Name *</label>
+                <input
+                  value={addContactForm.name}
+                  onChange={e => setAddContactForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Jane Smith"
+                  className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[#8b8b93] block mb-1.5">Job Title</label>
+                  <input
+                    value={addContactForm.title}
+                    onChange={e => setAddContactForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="VP of Operations"
+                    className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#8b8b93] block mb-1.5">Role Category</label>
+                  <select
+                    value={addContactForm.role_category}
+                    onChange={e => setAddContactForm(f => ({ ...f, role_category: e.target.value }))}
+                    className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">Select...</option>
+                    <option value="Decision Maker">Decision Maker</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Director">Director</option>
+                    <option value="Project Management">Project Management</option>
+                    <option value="Preconstruction">Preconstruction</option>
+                    <option value="Operations">Operations</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Business Development">Business Development</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[#8b8b93] block mb-1.5">Email</label>
+                  <input
+                    value={addContactForm.email}
+                    onChange={e => setAddContactForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="jane@company.com"
+                    className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#8b8b93] block mb-1.5">Phone</label>
+                  <input
+                    value={addContactForm.phone}
+                    onChange={e => setAddContactForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="(555) 123-4567"
+                    className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-6 pt-0">
+              <button onClick={() => setShowAddContact(false)} className="text-xs text-[#8b8b93] hover:text-white px-4 py-2 rounded-lg transition-colors">Cancel</button>
+              <button
+                disabled={addContactSaving || !addContactForm.name.trim()}
+                onClick={() => {
+                  setAddContactSaving(true);
+                  contactsApi.create({
+                    account_id: accountId,
+                    name: addContactForm.name,
+                    title: addContactForm.title || undefined,
+                    role_category: addContactForm.role_category || undefined,
+                    email: addContactForm.email || undefined,
+                    phone: addContactForm.phone || undefined,
+                  }).then(res => {
+                    setContacts(prev => [...prev, res.data]);
+                    setAddContactForm({ name: '', title: '', role_category: '', email: '', phone: '' });
+                    setShowAddContact(false);
+                  }).catch(() => {})
+                    .finally(() => setAddContactSaving(false));
+                }}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+              >
+                {addContactSaving ? 'Saving...' : 'Add Contact'}
+              </button>
             </div>
           </div>
         </div>
