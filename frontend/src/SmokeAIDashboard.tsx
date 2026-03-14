@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot,
   Loader2, Check, XCircle, MapPin, Calendar, TrendingUp, ArrowLeft, User, Star,
-  Target, Plus, ChevronDown, Copy, Phone, Mail
+  Target, Plus, ChevronDown, Copy, Phone, Mail, LayoutList, Rows3, Table2
 } from 'lucide-react';
 import {
   signalsApi, aiApi, accountsApi, contactsApi, projectsApi, activitiesApi, outreachApi,
@@ -31,6 +31,7 @@ function timeAgo(dateStr: string): string {
 
 type TierFilterValue = 'tier12' | 'tier1' | 'all';
 type StatusFilterValue = 'new' | 'all';
+type ViewMode = 'expanded' | 'compact' | 'table';
 
 const DEAL_STAGES = ['discovery', 'qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
 
@@ -44,6 +45,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   const [signalsLoading, setSignalsLoading] = useState(true);
   const [tierFilter, setTierFilter] = useState<TierFilterValue>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('new');
+  const [viewMode, setViewMode] = useState<ViewMode>('compact');
 
   // AI chat state
   const [query, setQuery] = useState('');
@@ -306,10 +308,30 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                 {opt.label}
               </button>
             ))}
+
+            <div className="ml-auto" />
+
+            {/* View mode toggle */}
+            <div className="flex bg-[#202022] rounded-lg p-0.5 border border-white/5">
+              {([
+                { mode: 'compact' as ViewMode, icon: <Rows3 size={14} />, title: 'Compact' },
+                { mode: 'expanded' as ViewMode, icon: <LayoutList size={14} />, title: 'Expanded' },
+                { mode: 'table' as ViewMode, icon: <Table2 size={14} />, title: 'Table' },
+              ]).map(v => (
+                <button
+                  key={v.mode}
+                  onClick={() => setViewMode(v.mode)}
+                  title={v.title}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === v.mode ? 'bg-indigo-600 text-white' : 'text-[#8b8b93] hover:text-white'}`}
+                >
+                  {v.icon}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className={`flex-1 overflow-y-auto ${viewMode === 'table' ? 'p-0' : 'p-6'} ${viewMode === 'table' ? '' : viewMode === 'compact' ? 'space-y-1.5' : 'space-y-4'}`}>
           {signalsLoading ? (
             <div className="flex items-center justify-center py-20 text-[#8b8b93]">
               <Loader2 size={24} className="animate-spin mr-3" />
@@ -321,7 +343,169 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
               <p className="text-sm">No {statusFilter === 'new' ? 'new ' : ''}signals detected yet.</p>
               <p className="text-xs mt-1">Signals will appear here as they are ingested.</p>
             </div>
+          ) : viewMode === 'table' ? (
+            /* ── TABLE VIEW ── */
+            <table className="w-full text-left">
+              <thead className="sticky top-0 bg-[#1a1a1c] z-10">
+                <tr className="text-[10px] text-[#8b8b93] uppercase tracking-wider border-b border-white/5">
+                  <th className="py-2.5 px-4 font-semibold">Source</th>
+                  <th className="py-2.5 px-2 font-semibold">Company</th>
+                  <th className="py-2.5 px-2 font-semibold">Signal</th>
+                  <th className="py-2.5 px-2 font-semibold">Location</th>
+                  <th className="py-2.5 px-2 font-semibold text-right">Value</th>
+                  <th className="py-2.5 px-2 font-semibold text-right">Score</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Heat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {signals.map((signal) => {
+                  const isSelected = selectedSignal?.id === signal.id;
+                  return (
+                    <tr
+                      key={signal.id}
+                      onClick={() => handleSignalClick(signal)}
+                      className={`border-b border-white/[0.03] cursor-pointer transition-colors text-xs ${
+                        isSelected ? 'bg-indigo-500/5' : 'hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <td className="py-2 px-4">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                          getSignalType(signal.source) === 'osha' ? 'text-red-400' :
+                          getSignalType(signal.source) === 'permit' ? 'text-blue-400' :
+                          getSignalType(signal.source) === 'procore' ? 'text-orange-400' :
+                          'text-green-400'
+                        }`}>{signal.source}</span>
+                      </td>
+                      <td className="py-2 px-2">
+                        <span
+                          className="text-indigo-400 font-medium hover:underline truncate block max-w-[140px]"
+                          onClick={(e) => { e.stopPropagation(); onAccountClick?.(signal.account_id); }}
+                        >
+                          {signal.account_name || '—'}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-[#e2e2e5] max-w-[200px] truncate">{signal.title}</td>
+                      <td className="py-2 px-2 text-[#8b8b93] whitespace-nowrap">
+                        {signal.location_city ? `${signal.location_city}${signal.location_state ? `, ${signal.location_state}` : ''}` : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-right whitespace-nowrap">
+                        {signal.project_value != null && signal.project_value > 0 ? (
+                          <span className="text-emerald-400 font-semibold">${signal.project_value >= 1_000_000 ? `${(signal.project_value / 1_000_000).toFixed(1)}M` : `${(signal.project_value / 1_000).toFixed(0)}K`}</span>
+                        ) : <span className="text-[#8b8b93]">—</span>}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        {signal.score_contribution > 0 && (
+                          <span className="text-indigo-400 font-bold">+{signal.score_contribution}</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-4 text-right">
+                        {signal.heat === 'hot' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">HOT</span>}
+                        {signal.heat === 'warm' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">WARM</span>}
+                        {signal.heat === 'cool' && <span className="text-[#8b8b93]">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : viewMode === 'compact' ? (
+            /* ── COMPACT VIEW ── */
+            signals.map((signal) => {
+              const type = getSignalType(signal.source);
+              const isSelected = selectedSignal?.id === signal.id;
+              return (
+                <div
+                  key={signal.id}
+                  onClick={() => handleSignalClick(signal)}
+                  className={`bg-[#1a1a1c] border rounded-lg px-4 py-2.5 transition-colors group cursor-pointer flex items-center gap-3 ${
+                    isSelected
+                      ? 'border-indigo-500/50 ring-1 ring-indigo-500/20'
+                      : 'border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  {/* Source icon */}
+                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                    type === 'osha' ? 'bg-red-500/10 text-red-500' :
+                    type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
+                    type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
+                    'bg-green-500/10 text-green-500'
+                  }`}>
+                    {type === 'osha' ? <AlertCircle size={14} /> :
+                     type === 'permit' ? <FileText size={14} /> :
+                     type === 'procore' ? <Building2 size={14} /> :
+                     <MessageSquare size={14} />}
+                  </div>
+
+                  {/* Main info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {signal.account_name && (
+                        <span
+                          className="text-xs text-indigo-400 font-semibold hover:underline shrink-0"
+                          onClick={(e) => { e.stopPropagation(); onAccountClick?.(signal.account_id); }}
+                        >
+                          {signal.account_name}
+                        </span>
+                      )}
+                      <span className="text-xs text-white truncate">{signal.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#8b8b93]">
+                      <span className="uppercase font-semibold tracking-wider">{signal.source}</span>
+                      {signal.location_city && (
+                        <>
+                          <span className="opacity-30">|</span>
+                          <span>{signal.location_city}{signal.location_state ? `, ${signal.location_state}` : ''}</span>
+                        </>
+                      )}
+                      {signal.source_date ? (
+                        <>
+                          <span className="opacity-30">|</span>
+                          <span>{new Date(signal.source_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="opacity-30">|</span>
+                          <span>{timeAgo(signal.detected_at)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: value + badges */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {signal.project_value != null && signal.project_value > 0 && (
+                      <span className="text-emerald-400 font-semibold text-xs">${signal.project_value >= 1_000_000 ? `${(signal.project_value / 1_000_000).toFixed(1)}M` : `${(signal.project_value / 1_000).toFixed(0)}K`}</span>
+                    )}
+                    {signal.heat === 'hot' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">HOT</span>}
+                    {signal.heat === 'warm' && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">WARM</span>}
+                    {signal.score_contribution > 0 && (
+                      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        +{signal.score_contribution}
+                      </span>
+                    )}
+                    {/* Quick actions on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(signal.id, 'actioned'); }}
+                        className="w-6 h-6 rounded flex items-center justify-center bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+                        title="Mark Done"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(signal.id, 'dismissed'); }}
+                        className="w-6 h-6 rounded flex items-center justify-center bg-[#202022] text-[#8b8b93] hover:text-white transition-colors"
+                        title="Dismiss"
+                      >
+                        <XCircle size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
           ) : (
+            /* ── EXPANDED VIEW (original) ── */
             signals.map((signal) => {
               const type = getSignalType(signal.source);
               const isSelected = selectedSignal?.id === signal.id;
