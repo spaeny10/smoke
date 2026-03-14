@@ -187,3 +187,15 @@ class CompanyAlias(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     alias = Column(String, unique=True, nullable=False)
     account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
+
+class SignalGate(Base):
+    __tablename__ = 'signal_gates'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    conditions = Column(JSON, nullable=False, default=dict)
+    enabled = Column(Boolean, default=True)
+    created_by = Column(String, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    creator = relationship("User")

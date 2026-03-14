@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Settings, Plus, Trash2, Users, Loader2, AlertCircle, Shield, Crown, UserCheck } from 'lucide-react';
+import { Settings, Plus, Trash2, Users, Loader2, AlertCircle, Shield, Crown, UserCheck, Filter } from 'lucide-react';
 import { teamsApi, usersApi, type UserProfile, type TeamWithMembers } from './api';
+import SignalTuningTab from './SignalTuningTab';
 
 interface SettingsPageProps {
   userProfile: UserProfile;
@@ -38,6 +39,7 @@ export default function SettingsPage({ userProfile }: SettingsPageProps) {
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'teams' | 'tuning'>('teams');
 
   const isDirector = userProfile.role === 'director';
 
@@ -154,9 +156,25 @@ export default function SettingsPage({ userProfile }: SettingsPageProps) {
               <Settings size={22} className="text-[#8b8b93]" />
               <h1 className="text-2xl font-semibold text-white">Settings</h1>
             </div>
-            <p className="text-sm text-[#8b8b93] ml-[34px]">User &amp; Team Management</p>
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 ml-[34px] mt-1 bg-[#202022] p-1 rounded-xl w-fit border border-white/5">
+              <button
+                onClick={() => setSettingsTab('teams')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${settingsTab === 'teams' ? 'bg-[#1a1a1c] text-white shadow-sm' : 'text-[#8b8b93] hover:text-white'}`}
+              >
+                <Users size={14} />
+                Teams
+              </button>
+              <button
+                onClick={() => setSettingsTab('tuning')}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${settingsTab === 'tuning' ? 'bg-[#1a1a1c] text-white shadow-sm' : 'text-[#8b8b93] hover:text-white'}`}
+              >
+                <Filter size={14} />
+                Signal Tuning
+              </button>
+            </div>
           </div>
-          {isDirector && (
+          {isDirector && settingsTab === 'teams' && (
             <button
               onClick={() => setShowCreateTeam(true)}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2.5 px-4 rounded-xl transition-colors"
@@ -167,29 +185,34 @@ export default function SettingsPage({ userProfile }: SettingsPageProps) {
           )}
         </div>
 
-        {/* Summary stats */}
-        <div className="flex items-center gap-6 mt-5 ml-[34px]">
-          <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
-            <Users size={14} />
-            <span>{allUsers.length} users</span>
+        {/* Summary stats - teams tab only */}
+        {settingsTab === 'teams' && (
+          <div className="flex items-center gap-6 mt-5 ml-[34px]">
+            <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
+              <Users size={14} />
+              <span>{allUsers.length} users</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              <span>{allUsers.filter(u => u.role === 'director').length} directors</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>{allUsers.filter(u => u.role === 'manager').length} managers</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+              <span>{allUsers.filter(u => u.role === 'rep').length} reps</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
-            <span className="w-2 h-2 rounded-full bg-purple-500" />
-            <span>{allUsers.filter(u => u.role === 'director').length} directors</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            <span>{allUsers.filter(u => u.role === 'manager').length} managers</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-[#8b8b93]">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            <span>{allUsers.filter(u => u.role === 'rep').length} reps</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+        {settingsTab === 'tuning' ? (
+          <SignalTuningTab userProfile={userProfile} />
+        ) : (<>
         {/* Team cards */}
         {teams.map(team => (
           <div key={team.id} className="bg-[#1a1a1c] rounded-[24px] border border-white/5 p-6">
@@ -251,6 +274,7 @@ export default function SettingsPage({ userProfile }: SettingsPageProps) {
             <p className="text-sm mt-1">Create a team to get started</p>
           </div>
         )}
+        </>)}
       </div>
 
       {/* Create Team Modal */}

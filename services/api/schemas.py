@@ -236,6 +236,45 @@ class UserRoleUpdate(BaseModel):
     team_id: Optional[str] = None
 
 
+# ── Signal Gate ─────────────────────────────────────────
+
+class SignalGateConditions(BaseModel):
+    states: Optional[List[str]] = None
+    sources: Optional[List[str]] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    segments: Optional[List[str]] = None
+    min_employee_count: Optional[int] = None
+    max_employee_count: Optional[int] = None
+
+
+class SignalGateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    conditions: SignalGateConditions
+    enabled: Optional[bool] = True
+
+
+class SignalGateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    conditions: Optional[SignalGateConditions] = None
+    enabled: Optional[bool] = None
+
+
+class SignalGateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: Optional[str] = None
+    conditions: dict
+    enabled: bool
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
 # ── Priority Queue ──────────────────────────────────────
 
 class PriorityQueueItem(BaseModel):

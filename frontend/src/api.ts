@@ -258,4 +258,38 @@ export const usersApi = {
     api.put<UserProfile>(`/api/users/${id}`, data),
 };
 
+// ── Signal Gates ────────────────────────────────────────
+
+export interface SignalGateConditions {
+  states?: string[];
+  sources?: string[];
+  min_value?: number | null;
+  max_value?: number | null;
+  segments?: string[];
+  min_employee_count?: number | null;
+  max_employee_count?: number | null;
+}
+
+export interface SignalGate {
+  id: string;
+  name: string;
+  description: string | null;
+  conditions: SignalGateConditions;
+  enabled: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const signalGatesApi = {
+  list: () =>
+    api.get<SignalGate[]>('/api/signal-gates'),
+  create: (data: { name: string; description?: string; conditions: SignalGateConditions; enabled?: boolean }) =>
+    api.post<SignalGate>('/api/signal-gates', data),
+  update: (id: string, data: Partial<{ name: string; description: string; conditions: SignalGateConditions; enabled: boolean }>) =>
+    api.put<SignalGate>(`/api/signal-gates/${id}`, data),
+  delete: (id: string) =>
+    api.delete(`/api/signal-gates/${id}`),
+};
+
 export default api;
