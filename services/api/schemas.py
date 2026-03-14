@@ -172,6 +172,7 @@ class SignalRead(BaseModel):
     location_state: Optional[str] = None
     detected_at: datetime
     created_at: datetime
+    source_date: Optional[datetime] = None
     account_name: Optional[str] = None
 
 

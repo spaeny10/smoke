@@ -149,18 +149,32 @@ async def fetch_procore_data():
                 elif record["estimated_value"] >= 50000000:
                     pts += 10
                     
+                # Parse source date
+                source_date = None
+                try:
+                    ca = record.get("created_at")
+                    if ca:
+                        source_date = datetime.fromisoformat(str(ca).replace("Z", "+00:00")) if "T" in str(ca) else datetime.strptime(str(ca)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    pass
+
+                loc = record.get("location", "")
+                value_str = f"${record['estimated_value']:,.0f}"
+                detail = f"Project: {record['project_name']} | {loc} | Est. Value: {value_str}"
+
                 new_signal = Signal(
                     account_id=matched_id,
                     source="procore",
                     signal_type="project_award",
                     heat=heat,
                     title=title,
-                    detail=f"Project: {record['project_name']} | Est. Value: ${record['estimated_value']:,.2f}",
+                    detail=detail,
                     raw_data=record,
                     score_contribution=pts,
                     external_id=f"procore_{record['id']}",
-                    location_city=record["location"].split(",")[0].strip() if "," in record["location"] else None,
-                    location_state=record["location"].split(",")[1].strip() if "," in record["location"] else None
+                    location_city=loc.split(",")[0].strip() if "," in loc else None,
+                    location_state=loc.split(",")[1].strip() if "," in loc else None,
+                    source_date=source_date,
                 )
                 db.add(new_signal)
                 records_scored += 1

@@ -246,7 +246,19 @@ async def fetch_news_data():
                     if project_value >= 100_000_000:
                         pts += 10
 
-                detail = f"{record['title']} — via {record.get('source_name', 'Google News')}"
+                # Parse source date
+                source_date = None
+                try:
+                    pub = record.get("published")
+                    if pub:
+                        source_date = datetime.fromisoformat(str(pub).replace("Z", "+00:00")) if "T" in str(pub) else datetime.strptime(str(pub)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    pass
+
+                src_name = record.get("source_name", "Google News")
+                detail = f"{record['title']} — via {src_name}"
+                if project_value:
+                    detail += f" | Est. Value: ${project_value / 1_000_000:.1f}M"
 
                 new_signal = Signal(
                     account_id=matched_id,
@@ -259,6 +271,7 @@ async def fetch_news_data():
                     score_contribution=pts,
                     external_id=record["id"],
                     project_value=project_value,
+                    source_date=source_date,
                 )
                 db.add(new_signal)
                 records_scored += 1

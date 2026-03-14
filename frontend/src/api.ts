@@ -101,6 +101,7 @@ export interface Signal {
   location_state: string | null;
   detected_at: string;
   created_at: string;
+  source_date: string | null;
   account_name: string | null;
 }
 

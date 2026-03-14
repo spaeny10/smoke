@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot, Loader2, Check, XCircle } from 'lucide-react';
+import { Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot, Loader2, Check, XCircle, MapPin, Calendar, TrendingUp } from 'lucide-react';
 import { signalsApi, aiApi, type Signal } from './api';
 
 function getSignalType(source: string): string {
@@ -164,9 +164,10 @@ export default function SmokeAIDashboard() {
               const type = getSignalType(signal.source);
               return (
                 <div key={signal.id} className="bg-[#1a1a1c] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group relative">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  {/* Header: source badge + company + heat + date */}
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                         type === 'osha' ? 'bg-red-500/10 text-red-500' :
                         type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
                         type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
@@ -177,28 +178,54 @@ export default function SmokeAIDashboard() {
                          type === 'procore' ? <Building2 size={16} /> :
                          <MessageSquare size={16} />}
                       </div>
-                      <div>
-                        <span className="text-xs font-semibold text-[#8b8b93] tracking-wider uppercase">{signal.source}</span>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-semibold text-[#8b8b93] tracking-wider uppercase">{signal.source}</span>
                         {signal.account_name && (
-                          <p className="text-xs text-indigo-400 font-medium">{signal.account_name}</p>
+                          <p className="text-sm text-indigo-400 font-semibold truncate">{signal.account_name}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-[#8b8b93]">{timeAgo(signal.detected_at)}</span>
-                      {/* Heat badge */}
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {signal.heat === 'hot' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">HOT</span>}
                       {signal.heat === 'warm' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">WARM</span>}
+                      {signal.score_contribution > 0 && (
+                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                          <TrendingUp size={10} />+{signal.score_contribution}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <h3 className="text-white font-medium mb-2 group-hover:text-indigo-400 transition-colors">{signal.title}</h3>
-                  <p className="text-sm text-[#8b8b93] line-clamp-2 mb-2">{signal.detail || `${signal.source} signal — ${signal.signal_type}`}</p>
-                  {(signal.location_city || signal.project_value) && (
-                    <div className="flex items-center gap-3 mb-3">
-                      {signal.location_city && <span className="text-xs text-[#8b8b93]">{signal.location_city}{signal.location_state ? `, ${signal.location_state}` : ''}</span>}
-                      {signal.project_value != null && signal.project_value > 0 && <span className="text-xs text-emerald-400 font-medium">${(signal.project_value / 1_000_000).toFixed(1)}M</span>}
-                    </div>
-                  )}
+
+                  {/* Title */}
+                  <h3 className="text-white font-medium mb-1.5">{signal.title}</h3>
+
+                  {/* Detail */}
+                  <p className="text-sm text-[#8b8b93] mb-2.5 leading-relaxed">{signal.detail || `${signal.source} signal — ${signal.signal_type}`}</p>
+
+                  {/* Metadata row: date, location, value */}
+                  <div className="flex items-center gap-3 flex-wrap text-xs mb-3">
+                    {signal.source_date && (
+                      <span className="flex items-center gap-1 text-[#8b8b93]">
+                        <Calendar size={11} />
+                        {new Date(signal.source_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    )}
+                    {!signal.source_date && (
+                      <span className="flex items-center gap-1 text-[#8b8b93]">
+                        <Calendar size={11} />
+                        {timeAgo(signal.detected_at)}
+                      </span>
+                    )}
+                    {signal.location_city && (
+                      <span className="flex items-center gap-1 text-[#8b8b93]">
+                        <MapPin size={11} />
+                        {signal.location_city}{signal.location_state ? `, ${signal.location_state}` : ''}
+                      </span>
+                    )}
+                    {signal.project_value != null && signal.project_value > 0 && (
+                      <span className="text-emerald-400 font-semibold">${signal.project_value >= 1_000_000 ? `${(signal.project_value / 1_000_000).toFixed(1)}M` : `${(signal.project_value / 1_000).toFixed(0)}K`}</span>
+                    )}
+                  </div>
 
                   {/* Action buttons */}
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

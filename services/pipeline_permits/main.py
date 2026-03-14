@@ -315,6 +315,18 @@ async def fetch_permit_data():
                 value_str = f"${record['estimated_value']:,.0f}" if record["estimated_value"] else "N/A"
                 detail = f"{record.get('work_description', '')[:200]} | Value: {value_str}"
 
+                # Parse source date
+                source_date = None
+                try:
+                    if record.get("issue_date"):
+                        source_date = datetime.fromisoformat(record["issue_date"].replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    pass
+
+                address = record.get("address", "")
+                permit_type = record.get("permit_type", "")
+                detail = f"{permit_type}: {record.get('work_description', '')[:200]} | {address}, {record['city']}, {record['state']} | Value: {value_str}"
+
                 new_signal = Signal(
                     account_id=matched_id,
                     source="permit",
@@ -329,6 +341,7 @@ async def fetch_permit_data():
                     project_value=record["estimated_value"],
                     location_city=record["city"],
                     location_state=record["state"],
+                    source_date=source_date,
                 )
                 db.add(new_signal)
                 records_scored += 1

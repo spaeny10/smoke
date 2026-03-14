@@ -184,18 +184,33 @@ async def fetch_osha_data():
                 if record["total_current_penalty"] >= 50000:
                     pts += 15
                     
+                # Parse source date
+                source_date = None
+                try:
+                    if record.get("open_date"):
+                        source_date = datetime.strptime(str(record["open_date"])[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    pass
+
+                insp_type = record.get("insp_type", "")
+                penalty = record["total_current_penalty"]
+                violations = record["nr_violations"]
+                site = f"{record['site_city']}, {record['site_state']}"
+                detail = f"{insp_type} inspection | {violations} violation{'s' if violations != 1 else ''}, penalty ${penalty:,.0f} | {site}"
+
                 new_signal = Signal(
                     account_id=matched_id,
                     source="osha",
                     signal_type="inspection",
                     heat=heat,
                     title=title,
-                    detail=f"{record['nr_violations']} violations, penalty ${record['total_current_penalty']}",
+                    detail=detail,
                     raw_data=record,
                     score_contribution=pts,
                     external_id=record["activity_nr"],
                     location_city=record["site_city"],
-                    location_state=record["site_state"]
+                    location_state=record["site_state"],
+                    source_date=source_date,
                 )
                 db.add(new_signal)
                 records_scored += 1

@@ -237,6 +237,19 @@ async def fetch_contract_data():
                     f"Agency: {record.get('awarding_agency', 'Unknown')}"
                 )
 
+                # Parse source date
+                source_date = None
+                try:
+                    sd = record.get("start_date") or record.get("award_date")
+                    if sd:
+                        source_date = datetime.fromisoformat(str(sd).replace("Z", "+00:00")) if "T" in str(sd) else datetime.strptime(str(sd)[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    pass
+
+                agency = record.get("awarding_agency", "Unknown")
+                place = f"{record.get('place_city', '')}, {record.get('place_state', '')}".strip(", ")
+                detail = f"{record.get('description', '')[:200]} | {amount_str} | Agency: {agency}" + (f" | {place}" if place else "")
+
                 new_signal = Signal(
                     account_id=matched_id,
                     source="usaspending",
@@ -251,6 +264,7 @@ async def fetch_contract_data():
                     project_value=amount,
                     location_city=record.get("place_city"),
                     location_state=record.get("place_state"),
+                    source_date=source_date,
                 )
                 db.add(new_signal)
                 records_scored += 1
