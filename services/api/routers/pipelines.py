@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Signal, Account, User
+from packages.db.models import Signal, Account, User, ScheduleConfig
+from services.api.schemas import ScheduleConfigRead, ScheduleConfigUpdate
 from services.api.auth import require_director
 
 router = APIRouter(prefix="/api/pipelines", tags=["pipelines"])
@@ -97,3 +98,43 @@ async def pipeline_status(user: User = Depends(require_director)):
         "last_result": _scan_state["last_result"],
         "error": _scan_state["error"],
     }
+
+
+@router.get("/schedule")
+async def get_schedule(
+    user: User = Depends(require_director),
+    db: AsyncSession = Depends(get_db),
+):
+    config = await db.scalar(
+        select(ScheduleConfig).where(ScheduleConfig.task_name == "pipeline_scan")
+    )
+    if not config:
+        return {"id": None, "task_name": "pipeline_scan", "cron_expression": "0 6 * * *", "enabled": False, "last_triggered": None}
+    return ScheduleConfigRead.model_validate(config)
+
+
+@router.put("/schedule")
+async def update_schedule(
+    data: ScheduleConfigUpdate,
+    user: User = Depends(require_director),
+    db: AsyncSession = Depends(get_db),
+):
+    config = await db.scalar(
+        select(ScheduleConfig).where(ScheduleConfig.task_name == "pipeline_scan")
+    )
+    if not config:
+        config = ScheduleConfig(
+            task_name="pipeline_scan",
+            cron_expression=data.cron_expression or "0 6 * * *",
+            enabled=data.enabled if data.enabled is not None else False,
+            created_by=user.id,
+        )
+        db.add(config)
+    else:
+        if data.cron_expression is not None:
+            config.cron_expression = data.cron_expression
+        if data.enabled is not None:
+            config.enabled = data.enabled
+    await db.commit()
+    await db.refresh(config)
+    return ScheduleConfigRead.model_validate(config)

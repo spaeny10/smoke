@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2, Pencil, Loader2, Filter, MapPin, DollarSign, Building2, Users, X, ChevronDown, Radar, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { signalGatesApi, pipelinesApi, type SignalGate, type SignalGateConditions, type PipelineScanStatus, type UserProfile } from './api';
+import { signalGatesApi, pipelinesApi, scheduleApi, type SignalGate, type SignalGateConditions, type PipelineScanStatus, type ScheduleConfig, type UserProfile } from './api';
 
 interface SignalTuningTabProps {
   userProfile: UserProfile;
@@ -59,6 +59,15 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
   const [scanStatus, setScanStatus] = useState<PipelineScanStatus | null>(null);
   const [scanStarting, setScanStarting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Schedule state
+  const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig | null>(null);
+
+  useEffect(() => {
+    if (isDirector) {
+      scheduleApi.get().then(res => setScheduleConfig(res.data)).catch(() => {});
+    }
+  }, [isDirector]);
 
   const fetchScanStatus = useCallback(() => {
     if (!isDirector) return;
@@ -368,6 +377,53 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
             <div className="mt-4 pt-4 border-t border-white/5 flex items-start gap-2">
               <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
               <p className="text-xs text-red-400">{scanStatus.error}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Schedule Config */}
+      {isDirector && scheduleConfig && (
+        <div className="bg-[#1a1a1c] rounded-[24px] border border-white/5 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-green-600/15">
+                <Radar size={16} className="text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Auto-Scan Schedule</h3>
+                <p className="text-xs text-[#8b8b93]">Automatically run signal pipelines on a schedule</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const newEnabled = !scheduleConfig.enabled;
+                scheduleApi.update({ enabled: newEnabled }).then(res => setScheduleConfig(res.data));
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors ${scheduleConfig.enabled ? 'bg-green-600' : 'bg-[#333]'}`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${scheduleConfig.enabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          {scheduleConfig.enabled && (
+            <div className="flex items-center gap-3 mt-3">
+              <label className="text-xs text-[#8b8b93]">Schedule:</label>
+              <select
+                value={scheduleConfig.cron_expression}
+                onChange={e => {
+                  scheduleApi.update({ cron_expression: e.target.value }).then(res => setScheduleConfig(res.data));
+                }}
+                className="bg-[#141416] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="0 */6 * * *">Every 6 hours</option>
+                <option value="0 6 * * *">Daily at 6:00 AM</option>
+                <option value="0 0 * * *">Daily at midnight</option>
+                <option value="0 6 * * 1">Weekly Monday 6:00 AM</option>
+              </select>
+              {scheduleConfig.last_triggered && (
+                <span className="text-[10px] text-[#8b8b93]">Last: {new Date(scheduleConfig.last_triggered).toLocaleString()}</span>
+              )}
             </div>
           )}
         </div>

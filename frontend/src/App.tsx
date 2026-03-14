@@ -17,10 +17,10 @@ import {
   Info,
   Loader2,
   PieChart as PieChartIcon,
-  MessageSquare,
   Mail,
   Check,
-  LogOut
+  LogOut,
+  MapPin
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import AccountDetail from './AccountDetail';
@@ -35,7 +35,9 @@ import ContactsList from './ContactsList';
 import ContactDetail from './ContactDetail';
 import LoginPage from './LoginPage';
 import SettingsPage from './SettingsPage';
-import { metricsApi, outreachApi, authApi, accountsApi, type UserProfile, type PriorityQueueItem } from './api';
+import MapView from './MapView';
+import SequencesPage from './SequencesPage';
+import { metricsApi, outreachApi, authApi, accountsApi, notificationsApi, type UserProfile, type PriorityQueueItem, type AppNotification } from './api';
 
 const chartData1 = [
   { name: '0', uv: 10 }, { name: '100', uv: 25 }, { name: '200', uv: 40 }, 
@@ -81,6 +83,8 @@ export default function App() {
   const [discoveredCount, setDiscoveredCount] = useState(0);
   const [priorityQueue, setPriorityQueue] = useState<PriorityQueueItem[]>([]);
   const [pqLoading, setPqLoading] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [metrics, setMetrics] = useState({
     activeAccounts: 124,
     newSignals: 86,
@@ -126,6 +130,20 @@ export default function App() {
       .then(res => setPriorityQueue(res.data.items))
       .catch(() => {})
       .finally(() => setPqLoading(false));
+  }, [userProfile]);
+
+  // Fetch notifications + poll unread count
+  useEffect(() => {
+    if (!userProfile) return;
+    const fetchNotifs = () => {
+      notificationsApi.list().then(res => setNotifications(res.data)).catch(() => {});
+      notificationsApi.unreadCount().then(res => setUnreadCount(res.data.count)).catch(() => {});
+    };
+    fetchNotifs();
+    const interval = setInterval(() => {
+      notificationsApi.unreadCount().then(res => setUnreadCount(res.data.count)).catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, [userProfile]);
 
   const handleAuthSuccess = (token: string) => {
@@ -251,7 +269,15 @@ export default function App() {
             <span className="text-sm font-medium">Attribution</span>
           </div>
 
-          <div 
+          <div
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'map' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            onClick={() => setActiveTab('map')}
+          >
+            <MapPin size={18} />
+            <span className="text-sm font-medium">Map</span>
+          </div>
+
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'blueprints' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => setActiveTab('blueprints')}
           >
@@ -259,12 +285,20 @@ export default function App() {
             <span className="text-sm font-medium">Blueprints</span>
           </div>
           
-          <div 
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'deals' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => setActiveTab('deals')}
           >
             <DollarSign size={18} />
             <span className="text-sm font-medium">Projects</span>
+          </div>
+
+          <div
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'sequences' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            onClick={() => setActiveTab('sequences')}
+          >
+            <Send size={18} />
+            <span className="text-sm font-medium">Sequences</span>
           </div>
         </div>
 
@@ -323,6 +357,8 @@ export default function App() {
         <ContactDetail contactId={selectedContactId} onNavigate={(tab) => setActiveTab(tab as any)} />
       ) : activeTab === 'attribution' ? (
         <AttributionDashboard />
+      ) : activeTab === 'map' ? (
+        <MapView />
       ) : activeTab === 'blueprints' ? (
         <BlueprintsDashboard />
       ) : activeTab === 'deals' ? (
@@ -334,6 +370,8 @@ export default function App() {
         <ProjectDetail projectId={selectedProjectId} onNavigate={(tab) => setActiveTab(tab as any)} />
       ) : activeTab === 'odin' ? (
         <SmokeAIDashboard />
+      ) : activeTab === 'sequences' ? (
+        <SequencesPage />
       ) : activeTab === 'inbox' ? (
         <Inbox />
       ) : activeTab === 'settings' ? (
@@ -381,63 +419,73 @@ export default function App() {
                 className={`w-10 h-10 rounded-xl transition-colors flex items-center justify-center border relative ${showNotifications ? 'bg-[#2a2a2d] border-indigo-500/50 text-white' : 'bg-[#202022] hover:bg-[#2a2a2d] text-[#8b8b93] border-white/5'}`}
               >
                 <Bell size={18} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
 
               {/* Notifications Dropdown */}
               {showNotifications && (
                 <div className="absolute top-full right-0 mt-2 w-80 bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
                   <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#202022]/50">
-                    <h3 className="text-white font-semibold">Inbox</h3>
-                    <button className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
-                      <Check size={12} /> Mark all read
-                    </button>
+                    <h3 className="text-white font-semibold">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={() => {
+                          notificationsApi.markAllRead().then(() => {
+                            setUnreadCount(0);
+                            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                          });
+                        }}
+                        className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+                      >
+                        <Check size={12} /> Mark all read
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-[400px] overflow-y-auto">
-                    {/* Notification Item 1 */}
-                    <div className="p-4 border-b border-white/5 hover:bg-[#202022] transition-colors cursor-pointer group">
-                      <div className="flex gap-3">
-                        <div className="mt-1 w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-                          <MessageSquare size={14} />
-                        </div>
-                        <div>
-                          <p className="text-sm text-white font-medium mb-1">
-                            Jessica Smith <span className="text-[#8b8b93] font-normal">replied via SMS</span>
-                          </p>
-                          <p className="text-xs text-[#8b8b93] line-clamp-2 mb-2">
-                            "Hey Evan, yes the site plan looks good. We can start moving dirt on Tuesday next week. Let me know if you need any permits on file."
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Chicago West Loop</span>
-                            <span className="text-[10px] text-[#8b8b93]">2m ago</span>
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-[#8b8b93] text-sm">No notifications yet</div>
+                    ) : notifications.map(notif => (
+                      <div
+                        key={notif.id}
+                        onClick={() => {
+                          if (!notif.read) {
+                            notificationsApi.markRead(notif.id).then(() => {
+                              setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+                              setUnreadCount(prev => Math.max(0, prev - 1));
+                            });
+                          }
+                          if (notif.link) {
+                            setShowNotifications(false);
+                          }
+                        }}
+                        className={`p-4 border-b border-white/5 hover:bg-[#202022] transition-colors cursor-pointer ${!notif.read ? 'bg-indigo-500/5' : ''}`}
+                      >
+                        <div className="flex gap-3">
+                          <div className="mt-1 w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+                            <Bell size={14} />
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium mb-1 ${!notif.read ? 'text-white' : 'text-[#e2e2e5]'}`}>
+                              {notif.title}
+                            </p>
+                            {notif.body && (
+                              <p className="text-xs text-[#8b8b93] line-clamp-2 mb-2">{notif.body}</p>
+                            )}
+                            <span className="text-[10px] text-[#8b8b93]">
+                              {new Date(notif.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          {!notif.read && <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />}
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Notification Item 2 */}
-                    <div className="p-4 border-b border-white/5 hover:bg-[#202022] transition-colors cursor-pointer group">
-                      <div className="flex gap-3">
-                        <div className="mt-1 w-8 h-8 rounded-full bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
-                          <Mail size={14} />
-                        </div>
-                        <div>
-                          <p className="text-sm text-[#e2e2e5] font-medium mb-1">
-                            Marcus Chen <span className="text-[#8b8b93] font-normal">sent an email</span>
-                          </p>
-                          <p className="text-xs text-[#8b8b93] line-clamp-2 mb-2">
-                            "Thanks for the demo earlier. Could you send over the pricing tiers for the enterprise package again? We are reviewing budgets."
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Abbott Laboratories</span>
-                            <span className="text-[10px] text-[#8b8b93]">1h ago</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                   <div className="p-3 bg-[#202022]/50 text-center border-t border-white/5">
-                    <button 
+                    <button
                       onClick={() => {
                         setActiveTab('inbox');
                         setShowNotifications(false);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, RefreshCw, Loader2, Upload, X, CheckCircle2, AlertCircle, Star, ChevronDown, Plus, ArrowUpCircle } from 'lucide-react';
-import { accountsApi, type Account, type ImportResult, type UserProfile } from './api';
+import { accountsApi, bulkApi, usersApi, savedViewsApi, enrichApi, type Account, type ImportResult, type UserProfile, type SavedView } from './api';
 
 function getScoreDisplay(score: number) {
   if (score >= 75) return { text: 'On Fire', color: 'text-red-500', bg: 'bg-red-500/10', icon: '\u2604\uFE0F' };
@@ -44,7 +44,66 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
   const [addSaving, setAddSaving] = useState(false);
   const [discoveredCount, setDiscoveredCount] = useState(0);
   const [promoteMenuId, setPromoteMenuId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTierMenu, setBulkTierMenu] = useState(false);
+  const [bulkAssignMenu, setBulkAssignMenu] = useState(false);
+  const [reps, setReps] = useState<UserProfile[]>([]);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [showViewsDropdown, setShowViewsDropdown] = useState(false);
+  const [showSaveViewInput, setShowSaveViewInput] = useState(false);
+  const [viewName, setViewName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === accounts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(accounts.map(a => a.id)));
+    }
+  };
+
+  const handleBulkTier = (tier: number) => {
+    bulkApi.updateAccounts(Array.from(selectedIds), { tier }).then(() => {
+      setSelectedIds(new Set());
+      setBulkTierMenu(false);
+      fetchAccounts(search);
+    });
+  };
+
+  const handleBulkAssign = (repId: string) => {
+    bulkApi.updateAccounts(Array.from(selectedIds), { assigned_rep_id: repId }).then(() => {
+      setSelectedIds(new Set());
+      setBulkAssignMenu(false);
+      fetchAccounts(search);
+    });
+  };
+
+  const [bulkEnriching, setBulkEnriching] = useState(false);
+
+  const handleBulkEnrich = () => {
+    setBulkEnriching(true);
+    enrichApi.bulkEnrich(Array.from(selectedIds)).then(() => {
+      setSelectedIds(new Set());
+      fetchAccounts(search);
+    }).catch(() => {}).finally(() => setBulkEnriching(false));
+  };
+
+  const handleBulkDelete = () => {
+    if (!confirm(`Delete ${selectedIds.size} account(s)? This cannot be undone.`)) return;
+    bulkApi.deleteAccounts(Array.from(selectedIds)).then(() => {
+      setSelectedIds(new Set());
+      fetchAccounts(search);
+    });
+  };
 
   const fetchAccounts = (searchTerm?: string) => {
     setLoading(true);
@@ -68,7 +127,10 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       .catch(() => {});
   };
 
-  useEffect(() => { fetchDiscoveredCount(); }, []);
+  useEffect(() => {
+    fetchDiscoveredCount();
+    savedViewsApi.list('accounts').then(res => setSavedViews(res.data)).catch(() => {});
+  }, []);
   useEffect(() => { fetchAccounts(); }, [tierFilter, viewScope]);
 
   useEffect(() => {
@@ -119,6 +181,32 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
         fetchDiscoveredCount();
       })
       .catch(() => {});
+  };
+
+  const handleSaveView = () => {
+    if (!viewName.trim()) return;
+    const filters: Record<string, unknown> = {};
+    if (search) filters.search = search;
+    if (tierFilter !== null) filters.tier = tierFilter;
+    if (viewScope) filters.viewScope = viewScope;
+    savedViewsApi.create({ name: viewName.trim(), entity: 'accounts', filters }).then(res => {
+      setSavedViews(prev => [res.data, ...prev]);
+      setViewName('');
+      setShowSaveViewInput(false);
+    }).catch(() => {});
+  };
+
+  const applyView = (view: SavedView) => {
+    const f = view.filters as Record<string, unknown>;
+    setSearch((f.search as string) || '');
+    setTierFilter(f.tier !== undefined ? (f.tier as number) : null);
+    if (f.viewScope) setViewScope(f.viewScope as string);
+    setShowViewsDropdown(false);
+  };
+
+  const deleteView = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    savedViewsApi.delete(id).then(() => setSavedViews(prev => prev.filter(v => v.id !== id))).catch(() => {});
   };
 
   return (
@@ -199,6 +287,54 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
               <Upload size={14} />
               Import CSV
             </button>
+
+            {/* Saved Views */}
+            <div className="relative">
+              <button
+                onClick={() => setShowViewsDropdown(!showViewsDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded-lg text-sm text-[#e2e2e5] hover:bg-[#202022] transition-colors"
+              >
+                <Star size={14} className="text-[#8b8b93]" />
+                Views
+                {savedViews.length > 0 && (
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded-full font-bold">{savedViews.length}</span>
+                )}
+                <ChevronDown size={12} className="text-[#8b8b93]" />
+              </button>
+              {showViewsDropdown && (
+                <div className="absolute top-full right-0 mt-1 w-64 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-20 py-1">
+                  {savedViews.map(v => (
+                    <div key={v.id} onClick={() => applyView(v)} className="flex items-center justify-between px-3 py-2 text-sm text-[#e2e2e5] hover:bg-[#202022] cursor-pointer transition-colors group">
+                      <span className="truncate">{v.name}</span>
+                      <button onClick={(e) => deleteView(v.id, e)} className="opacity-0 group-hover:opacity-100 text-[#8b8b93] hover:text-red-400 transition-all">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {savedViews.length === 0 && <div className="px-3 py-2 text-xs text-[#8b8b93]">No saved views yet</div>}
+                  <div className="border-t border-white/5 mt-1 pt-1">
+                    {showSaveViewInput ? (
+                      <div className="px-3 py-2 flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="View name..."
+                          value={viewName}
+                          onChange={e => setViewName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveView()}
+                          className="flex-1 bg-[#0a0a0b] border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-[#8b8b93]"
+                          autoFocus
+                        />
+                        <button onClick={handleSaveView} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">Save</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setShowSaveViewInput(true)} className="w-full text-left px-3 py-2 text-xs text-indigo-400 hover:bg-[#202022] transition-colors flex items-center gap-1.5">
+                        <Plus size={12} /> Save current view
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -251,7 +387,15 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
 
       {/* Table Header */}
       <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
-        <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Company</div>
+        <div className="col-span-3 flex items-center gap-2 cursor-pointer hover:text-[#e2e2e5]">
+          <input
+            type="checkbox"
+            checked={accounts.length > 0 && selectedIds.size === accounts.length}
+            onChange={toggleSelectAll}
+            className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-indigo-500 cursor-pointer"
+          />
+          Company
+        </div>
         <div className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Tier</div>
         <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Stage</div>
         <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5] pl-6">Score</div>
@@ -285,6 +429,13 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                 className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group items-center"
               >
                 <div className="col-span-3 flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(account.id)}
+                    onChange={() => {}}
+                    onClick={(e) => toggleSelect(account.id, e)}
+                    className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-indigo-500 cursor-pointer shrink-0"
+                  />
                   <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0`}>
                     {initial}
                   </div>
@@ -351,6 +502,76 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
           })
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-0 left-0 right-0 bg-[#1a1a1c] border-t border-white/10 px-6 py-3 flex items-center gap-4 z-30 shadow-xl">
+          <span className="text-sm text-white font-medium">{selectedIds.size} selected</span>
+          <button onClick={() => setSelectedIds(new Set())} className="text-xs text-[#8b8b93] hover:text-white transition-colors">
+            <X size={14} className="inline mr-1" />Clear
+          </button>
+          <div className="w-px h-5 bg-white/10" />
+
+          {/* Set Tier */}
+          <div className="relative">
+            <button
+              onClick={() => { setBulkTierMenu(!bulkTierMenu); setBulkAssignMenu(false); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#202022] border border-white/10 rounded-lg text-xs text-[#e2e2e5] hover:bg-[#2a2a2d] transition-colors"
+            >
+              Set Tier <ChevronDown size={12} />
+            </button>
+            {bulkTierMenu && (
+              <div className="absolute bottom-full left-0 mb-1 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-40 py-1 w-40">
+                {[{ tier: 1, label: 'Tier 1' }, { tier: 2, label: 'Tier 2' }, { tier: 3, label: 'Tier 3' }].map(o => (
+                  <button key={o.tier} onClick={() => handleBulkTier(o.tier)} className="w-full text-left px-3 py-2 text-xs text-[#e2e2e5] hover:bg-[#202022] transition-colors">{o.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Assign Rep */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setBulkAssignMenu(!bulkAssignMenu);
+                setBulkTierMenu(false);
+                if (reps.length === 0) usersApi.list().then(res => setReps(res.data)).catch(() => {});
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#202022] border border-white/10 rounded-lg text-xs text-[#e2e2e5] hover:bg-[#2a2a2d] transition-colors"
+            >
+              Assign Rep <ChevronDown size={12} />
+            </button>
+            {bulkAssignMenu && (
+              <div className="absolute bottom-full left-0 mb-1 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-40 py-1 w-48 max-h-40 overflow-y-auto">
+                {reps.map(r => (
+                  <button key={r.id} onClick={() => handleBulkAssign(r.id)} className="w-full text-left px-3 py-2 text-xs text-[#e2e2e5] hover:bg-[#202022] transition-colors truncate">{r.name}</button>
+                ))}
+                {reps.length === 0 && <div className="px-3 py-2 text-xs text-[#8b8b93]">Loading...</div>}
+              </div>
+            )}
+          </div>
+
+          {/* Enrich */}
+          <button
+            onClick={handleBulkEnrich}
+            disabled={bulkEnriching}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs text-indigo-400 hover:bg-indigo-500/20 transition-colors disabled:opacity-50"
+          >
+            {bulkEnriching ? <Loader2 size={12} className="animate-spin" /> : <Star size={12} />}
+            {bulkEnriching ? 'Enriching...' : 'Enrich'}
+          </button>
+
+          {/* Delete */}
+          {userProfile?.role === 'director' && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 hover:bg-red-500/20 transition-colors ml-auto"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Add Company Modal */}
       {showAddCompany && (

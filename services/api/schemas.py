@@ -236,6 +236,137 @@ class UserRoleUpdate(BaseModel):
     team_id: Optional[str] = None
 
 
+# ── Notification ───────────────────────────────────────
+
+class NotificationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    title: str
+    body: Optional[str] = None
+    link: Optional[str] = None
+    read: bool
+    created_at: datetime
+
+
+# ── Activity ──────────────────────────────────────────
+
+class ActivityCreate(BaseModel):
+    account_id: str
+    channel: str
+    direction: str
+    summary: str
+    contact_id: Optional[str] = None
+
+
+class ActivityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    account_id: str
+    contact_id: Optional[str] = None
+    user_id: Optional[str] = None
+    channel: str
+    direction: str
+    summary: str
+    is_auto_logged: bool
+    created_at: datetime
+
+
+# ── Bulk Actions ──────────────────────────────────────
+
+class BulkAccountUpdate(BaseModel):
+    ids: List[str]
+    updates: dict
+
+
+class BulkAccountDelete(BaseModel):
+    ids: List[str]
+
+
+# ── Schedule Config ───────────────────────────────────
+
+class ScheduleConfigRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    task_name: str
+    cron_expression: str
+    enabled: bool
+    last_triggered: Optional[datetime] = None
+
+
+class ScheduleConfigUpdate(BaseModel):
+    cron_expression: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+# ── Saved View ───────────────────────────────────────
+
+class SavedViewCreate(BaseModel):
+    name: str
+    entity: str
+    filters: dict
+
+
+class SavedViewRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    name: str
+    entity: str
+    filters: dict
+    created_at: datetime
+
+
+# ── Outreach Sequences ──────────────────────────────────
+
+class SequenceStepSchema(BaseModel):
+    step: int
+    channel: str
+    delay_days: int = 0
+    template: str
+
+
+class SequenceCreate(BaseModel):
+    name: str
+    steps: List[SequenceStepSchema]
+
+
+class SequenceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    steps: list
+    created_by: Optional[str] = None
+    created_at: datetime
+
+
+class EnrollmentCreate(BaseModel):
+    contact_id: str
+    account_id: str
+
+
+class EnrollmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    sequence_id: str
+    contact_id: str
+    account_id: str
+    current_step: int
+    status: str
+    next_send_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class EnrollmentUpdate(BaseModel):
+    status: Optional[str] = None
+
+
 # ── Signal Gate ─────────────────────────────────────────
 
 class SignalGateConditions(BaseModel):

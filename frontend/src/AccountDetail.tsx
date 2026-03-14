@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star } from 'lucide-react';
+import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star, Phone, Mail, MessageSquare, FileText, Send } from 'lucide-react';
 import { useProjects } from './ProjectsContext';
-import { accountsApi, type Account, type Contact, type Signal } from './api';
+import { accountsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence } from './api';
 
 const intentData = [
   { date: 'May 8', score: 68 },
@@ -22,13 +22,24 @@ const intentData = [
 ];
 
 export default function AccountDetail({ accountId, onNavigate }: { accountId: string; onNavigate?: (tab: string) => void }) {
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'signals' | 'people'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'signals' | 'people' | 'activity'>('overview');
   const { projects, addProject, updateProjectStage } = useProjects();
 
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logForm, setLogForm] = useState({ channel: 'call', direction: 'outbound', summary: '' });
+  const [logSaving, setLogSaving] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [showDedupModal, setShowDedupModal] = useState(false);
+  const [dupGroups, setDupGroups] = useState<Signal[][]>([]);
+  const [dedupLoading, setDedupLoading] = useState(false);
+  const [availableSequences, setAvailableSequences] = useState<OutreachSequence[]>([]);
+  const [enrollMenuContactId, setEnrollMenuContactId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -123,6 +134,24 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
               ))}
             </div>
           </div>
+
+          <div className="ml-8 border-l border-white/10 pl-8">
+            <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">AI</p>
+            <button
+              onClick={() => {
+                setEnriching(true);
+                enrichApi.enrich(accountId)
+                  .then(res => setAccount(res.data))
+                  .catch(() => {})
+                  .finally(() => setEnriching(false));
+              }}
+              disabled={enriching}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {enriching ? <Loader2 size={10} className="animate-spin" /> : <Star size={10} />}
+              {enriching ? 'Enriching...' : 'Enrich'}
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -142,17 +171,26 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
             Journey
           </div>
-          <div 
+          <div
             onClick={() => setActiveTab('people')}
             className={`pb-3 font-medium text-sm whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'people' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-[#8b8b93] hover:text-white'}`}
           >
             People
           </div>
-          <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
-            Deals
+          <div
+            onClick={() => {
+              setActiveTab('activity');
+              if (activities.length === 0 && !activityLoading) {
+                setActivityLoading(true);
+                activitiesApi.list({ account_id: accountId }).then(res => setActivities(res.data.items)).catch(() => {}).finally(() => setActivityLoading(false));
+              }
+            }}
+            className={`pb-3 font-medium text-sm whitespace-nowrap cursor-pointer transition-colors ${activeTab === 'activity' ? 'border-b-2 border-indigo-500 text-indigo-400' : 'text-[#8b8b93] hover:text-white'}`}
+          >
+            Activity
           </div>
           <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
-            Tasks
+            Deals
           </div>
           <div className="pb-3 text-[#8b8b93] hover:text-white font-medium text-sm whitespace-nowrap cursor-pointer transition-colors">
             Agent
@@ -336,6 +374,19 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                 📡 Raw Digested Signals
               </h2>
               <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setDedupLoading(true);
+                    setShowDedupModal(true);
+                    signalDedupApi.findDuplicates(accountId)
+                      .then(res => setDupGroups(res.data))
+                      .catch(() => setDupGroups([]))
+                      .finally(() => setDedupLoading(false));
+                  }}
+                  className="text-xs bg-[#202022] text-[#8b8b93] hover:text-white px-2 py-1 rounded-md border border-white/5 font-medium transition-colors"
+                >
+                  Deduplicate
+                </button>
                 <span className="text-xs bg-orange-500/10 text-orange-400 px-2 py-1 rounded-md border border-orange-500/20 font-medium">
                   High Priority
                 </span>
@@ -495,6 +546,113 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
 
             </div>
           </div>
+        ) : activeTab === 'activity' ? (
+          <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6 mb-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <FileText size={18} className="text-indigo-400" />
+                Activity Log
+              </h2>
+              <button
+                onClick={() => setShowLogForm(!showLogForm)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+              >
+                <Plus size={14} /> Log Activity
+              </button>
+            </div>
+
+            {showLogForm && (
+              <div className="bg-[#202022] border border-white/10 rounded-xl p-5 mb-6">
+                <div className="flex gap-4 mb-4">
+                  <div className="flex-1">
+                    <label className="text-xs text-[#8b8b93] block mb-1.5">Channel</label>
+                    <select
+                      value={logForm.channel}
+                      onChange={e => setLogForm(f => ({ ...f, channel: e.target.value }))}
+                      className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="call">Call</option>
+                      <option value="email">Email</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="note">Note</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-[#8b8b93] block mb-1.5">Direction</label>
+                    <select
+                      value={logForm.direction}
+                      onChange={e => setLogForm(f => ({ ...f, direction: e.target.value }))}
+                      className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="outbound">Outbound</option>
+                      <option value="inbound">Inbound</option>
+                    </select>
+                  </div>
+                </div>
+                <textarea
+                  placeholder="What happened?"
+                  value={logForm.summary}
+                  onChange={e => setLogForm(f => ({ ...f, summary: e.target.value }))}
+                  rows={3}
+                  className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b8b93] focus:outline-none focus:border-indigo-500 mb-3 resize-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setShowLogForm(false); setLogForm({ channel: 'call', direction: 'outbound', summary: '' }); }} className="text-xs text-[#8b8b93] hover:text-white px-3 py-1.5 rounded-lg transition-colors">Cancel</button>
+                  <button
+                    disabled={logSaving || !logForm.summary.trim()}
+                    onClick={() => {
+                      setLogSaving(true);
+                      activitiesApi.create({ account_id: accountId, channel: logForm.channel, direction: logForm.direction, summary: logForm.summary })
+                        .then(res => {
+                          setActivities(prev => [res.data, ...prev]);
+                          setLogForm({ channel: 'call', direction: 'outbound', summary: '' });
+                          setShowLogForm(false);
+                        })
+                        .catch(() => {})
+                        .finally(() => setLogSaving(false));
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                  >
+                    {logSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activityLoading ? (
+              <div className="flex items-center justify-center py-12 text-[#8b8b93]">
+                <Loader2 size={20} className="animate-spin mr-2" />
+                <span className="text-sm">Loading activities...</span>
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="text-center py-12 text-[#8b8b93] text-sm">No activities logged yet.</div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map(a => {
+                  const icon = a.channel === 'call' ? <Phone size={14} /> : a.channel === 'email' ? <Mail size={14} /> : a.channel === 'meeting' ? <MessageSquare size={14} /> : <FileText size={14} />;
+                  const color = a.channel === 'call' ? 'text-green-400 bg-green-500/10' : a.channel === 'email' ? 'text-blue-400 bg-blue-500/10' : a.channel === 'meeting' ? 'text-purple-400 bg-purple-500/10' : 'text-[#8b8b93] bg-[#202022]';
+                  return (
+                    <div key={a.id} className="flex gap-3 p-3 rounded-xl bg-[#202022] border border-white/5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+                        {icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[#8b8b93]">{a.channel}</span>
+                          <span className="text-[10px] text-[#8b8b93]">{a.direction}</span>
+                          {a.is_auto_logged && <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-medium">Auto</span>}
+                        </div>
+                        <p className="text-sm text-[#e2e2e5]">{a.summary}</p>
+                        <span className="text-[10px] text-[#8b8b93] mt-1 block">
+                          {new Date(a.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : activeTab === 'people' ? (
           <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6 mb-6">
             <div className="flex justify-between items-center mb-6">
@@ -545,6 +703,42 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                         <button className="flex-1 bg-white/[0.03] hover:bg-white/[0.08] text-white text-xs font-medium py-2 rounded-lg transition-colors border border-white/5">
                           Send SMS
                         </button>
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              if (enrollMenuContactId === c.id) {
+                                setEnrollMenuContactId(null);
+                              } else {
+                                setEnrollMenuContactId(c.id);
+                                if (availableSequences.length === 0) {
+                                  sequencesApi.list().then(res => setAvailableSequences(res.data)).catch(() => {});
+                                }
+                              }
+                            }}
+                            className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-medium py-2 px-3 rounded-lg transition-colors border border-indigo-500/20 flex items-center gap-1"
+                          >
+                            <Send size={10} /> Sequence
+                          </button>
+                          {enrollMenuContactId === c.id && (
+                            <div className="absolute bottom-full right-0 mb-1 w-52 bg-[#1a1a1c] border border-white/10 rounded-lg shadow-xl z-20 py-1">
+                              {availableSequences.length === 0 ? (
+                                <div className="px-3 py-2 text-xs text-[#8b8b93]">No sequences yet</div>
+                              ) : availableSequences.map(seq => (
+                                <button
+                                  key={seq.id}
+                                  onClick={() => {
+                                    sequencesApi.enroll(seq.id, { contact_id: c.id, account_id: accountId })
+                                      .then(() => setEnrollMenuContactId(null))
+                                      .catch(() => {});
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs text-[#e2e2e5] hover:bg-[#202022] transition-colors truncate"
+                                >
+                                  {seq.name} ({seq.steps.length} steps)
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -554,6 +748,82 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           </div>
         ) : null}
       </div>
+
+      {/* Dedup Modal */}
+      {showDedupModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowDedupModal(false)}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
+              <h2 className="text-lg font-semibold text-white">Duplicate Signals</h2>
+              <button onClick={() => setShowDedupModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
+                <AlertCircle size={18} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {dedupLoading ? (
+                <div className="flex items-center justify-center py-12 text-[#8b8b93]">
+                  <Loader2 size={20} className="animate-spin mr-2" />
+                  <span className="text-sm">Scanning for duplicates...</span>
+                </div>
+              ) : dupGroups.length === 0 ? (
+                <div className="text-center py-12 text-[#8b8b93] text-sm">No duplicate signals found.</div>
+              ) : (
+                <div className="space-y-4">
+                  {dupGroups.map((group, gi) => (
+                    <div key={gi} className="bg-[#202022] border border-white/5 rounded-xl p-4">
+                      <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-3 font-medium">
+                        {group[0]?.source} — "{group[0]?.title}" ({group.length} duplicates)
+                      </p>
+                      <div className="space-y-2">
+                        {group.map((sig, si) => (
+                          <div key={sig.id} className="flex items-center justify-between text-sm">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[#e2e2e5] truncate block">{sig.title}</span>
+                              <span className="text-[10px] text-[#8b8b93]">{new Date(sig.detected_at).toLocaleDateString()}</span>
+                            </div>
+                            {si === 0 ? (
+                              <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded font-medium ml-2 shrink-0">Keep</span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  signalDedupApi.merge(group[0].id, [sig.id]).then(() => {
+                                    setDupGroups(prev => {
+                                      const updated = prev.map((g, idx) => idx === gi ? g.filter(s => s.id !== sig.id) : g);
+                                      return updated.filter(g => g.length > 1);
+                                    });
+                                    setSignals(prev => prev.filter(s => s.id !== sig.id));
+                                  }).catch(() => {});
+                                }}
+                                className="text-[10px] bg-red-500/10 text-red-400 hover:bg-red-500/20 px-2 py-0.5 rounded font-medium ml-2 shrink-0 transition-colors"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {group.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const removeIds = group.slice(1).map(s => s.id);
+                            signalDedupApi.merge(group[0].id, removeIds).then(() => {
+                              setDupGroups(prev => prev.filter((_, idx) => idx !== gi));
+                              setSignals(prev => prev.filter(s => !removeIds.includes(s.id)));
+                            }).catch(() => {});
+                          }}
+                          className="mt-3 text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                        >
+                          Merge all — keep oldest
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Right Properties Sidebar */}
       <div className="w-80 border-l border-[#202022] bg-[#141416] p-6 overflow-y-auto shrink-0">

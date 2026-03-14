@@ -12,8 +12,9 @@ from services.api.schemas import (
     AccountCreate, AccountUpdate, AccountRead,
     ContactRead, SignalRead, ProjectRead,
     PaginatedResponse, PriorityQueueItem, PriorityQueueResponse,
+    BulkAccountUpdate, BulkAccountDelete,
 )
-from services.api.auth import get_current_user, get_visible_account_ids
+from services.api.auth import get_current_user, get_visible_account_ids, require_auth, require_director
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -255,6 +256,131 @@ async def delete_account(account_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Account not found")
     await db.delete(account)
     await db.commit()
+
+
+# ── Bulk Actions ─────────────────────────────────────────
+
+@router.post("/bulk-update")
+async def bulk_update_accounts(
+    data: BulkAccountUpdate,
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    if not data.ids:
+        raise HTTPException(status_code=400, detail="No account IDs provided")
+    allowed_fields = {'tier', 'assigned_rep_id', 'deal_stage'}
+    updates = {k: v for k, v in data.updates.items() if k in allowed_fields}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid update fields")
+
+    result = await db.execute(select(Account).where(Account.id.in_(data.ids)))
+    accounts = result.scalars().all()
+    for acct in accounts:
+        for key, value in updates.items():
+            setattr(acct, key, value)
+    await db.commit()
+    return {"updated": len(accounts)}
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_accounts(
+    data: BulkAccountDelete,
+    user: User = Depends(require_director),
+    db: AsyncSession = Depends(get_db),
+):
+    if not data.ids:
+        raise HTTPException(status_code=400, detail="No account IDs provided")
+    result = await db.execute(select(Account).where(Account.id.in_(data.ids)))
+    accounts = result.scalars().all()
+    for acct in accounts:
+        await db.delete(acct)
+    await db.commit()
+    return {"deleted": len(accounts)}
+
+
+# ── Enrichment ────────────────────────────────────────────
+
+@router.post("/{account_id}/enrich")
+async def enrich_account(
+    account_id: str,
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    account = await db.scalar(select(Account).where(Account.id == account_id))
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Gather signals for context
+    signals_result = await db.execute(
+        select(Signal).where(Signal.account_id == account_id).order_by(Signal.detected_at.desc()).limit(10)
+    )
+    signals = list(signals_result.scalars().all())
+
+    signal_context = "; ".join(
+        f"{s.source}: {s.title} in {s.location_city or '?'}, {s.location_state or '?'}"
+        for s in signals[:5]
+    )
+
+    try:
+        from packages.ai.claude import client, ANTHROPIC_API_KEY
+        import json as _json
+
+        if ANTHROPIC_API_KEY:
+            resp = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                temperature=0,
+                system="Return ONLY valid JSON with keys: segment, employee_estimate, hq_state. segment is one of: Commercial, Multifamily, Mixed, Industrial, Infrastructure, Residential. employee_estimate is an integer. hq_state is a 2-letter US state code.",
+                messages=[{"role": "user", "content": f"Company: {account.name}. Signals: {signal_context}. Infer segment, approximate employee count, and likely HQ state."}],
+            )
+            data = _json.loads(resp.content[0].text)
+            if not account.segment and data.get("segment"):
+                account.segment = data["segment"]
+            if not account.employee_count and data.get("employee_estimate"):
+                account.employee_count = int(data["employee_estimate"])
+            if not account.hq_state and data.get("hq_state"):
+                account.hq_state = data["hq_state"]
+        else:
+            # Mock enrichment from signals
+            if not account.hq_state and signals:
+                for s in signals:
+                    if s.location_state:
+                        account.hq_state = s.location_state
+                        break
+            if not account.hq_city and signals:
+                for s in signals:
+                    if s.location_city:
+                        account.hq_city = s.location_city
+                        break
+            if not account.segment:
+                account.segment = "Commercial"
+            if not account.employee_count:
+                account.employee_count = 150
+    except Exception:
+        # Fallback: just fill from signals
+        await enrich_account_from_signals(account, db)
+
+    await db.commit()
+    await db.refresh(account)
+    return AccountRead.model_validate(account)
+
+
+@router.post("/bulk-enrich")
+async def bulk_enrich_accounts(
+    data: BulkAccountDelete,  # reuse ids-only schema
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    if not data.ids or len(data.ids) > 20:
+        raise HTTPException(status_code=400, detail="Provide 1-20 account IDs")
+    enriched = 0
+    for aid in data.ids:
+        account = await db.scalar(select(Account).where(Account.id == aid))
+        if account:
+            await enrich_account_from_signals(account, db)
+            enriched += 1
+    await db.commit()
+    return {"enriched": enriched}
 
 
 # ── Sub-resources ────────────────────────────────────────

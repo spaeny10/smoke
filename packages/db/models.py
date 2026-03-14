@@ -188,6 +188,62 @@ class CompanyAlias(Base):
     alias = Column(String, unique=True, nullable=False)
     account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
 
+class Notification(Base):
+    __tablename__ = 'notifications'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    title = Column(String, nullable=False)
+    body = Column(String)
+    link = Column(String)
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ScheduleConfig(Base):
+    __tablename__ = 'schedule_configs'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    task_name = Column(String, unique=True, nullable=False)
+    cron_expression = Column(String, nullable=False)
+    enabled = Column(Boolean, default=True)
+    last_triggered = Column(DateTime(timezone=True))
+    created_by = Column(String, ForeignKey('users.id'))
+
+
+class SavedView(Base):
+    __tablename__ = 'saved_views'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    name = Column(String, nullable=False)
+    entity = Column(String, nullable=False)
+    filters = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class OutreachSequence(Base):
+    __tablename__ = 'outreach_sequences'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False)
+    steps = Column(JSON, nullable=False)  # [{step: 1, channel: 'email', delay_days: 0, template: '...'}, ...]
+    created_by = Column(String, ForeignKey('users.id'))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    enrollments = relationship("SequenceEnrollment", back_populates="sequence", cascade="all, delete-orphan")
+
+
+class SequenceEnrollment(Base):
+    __tablename__ = 'sequence_enrollments'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    sequence_id = Column(String, ForeignKey('outreach_sequences.id', ondelete='CASCADE'))
+    contact_id = Column(String, ForeignKey('contacts.id'))
+    account_id = Column(String, ForeignKey('accounts.id'))
+    current_step = Column(Integer, default=1)
+    status = Column(String, default='active')  # active, paused, completed, bounced
+    next_send_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    sequence = relationship("OutreachSequence", back_populates="enrollments")
+
+
 class SignalGate(Base):
     __tablename__ = 'signal_gates'
     id = Column(String, primary_key=True, default=generate_uuid)

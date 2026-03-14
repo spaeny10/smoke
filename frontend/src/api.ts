@@ -314,4 +314,189 @@ export const pipelinesApi = {
     api.get<PipelineScanStatus>('/api/pipelines/status'),
 };
 
+// ── Notifications ────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  list: () =>
+    api.get<AppNotification[]>('/api/notifications'),
+  unreadCount: () =>
+    api.get<{ count: number }>('/api/notifications/unread-count'),
+  markRead: (id: string) =>
+    api.patch<AppNotification>(`/api/notifications/${id}/read`),
+  markAllRead: () =>
+    api.post('/api/notifications/read-all'),
+};
+
+// ── Activities ───────────────────────────────────────────
+
+export interface Activity {
+  id: string;
+  account_id: string;
+  contact_id: string | null;
+  user_id: string | null;
+  channel: string;
+  direction: string;
+  summary: string;
+  is_auto_logged: boolean;
+  created_at: string;
+}
+
+export const activitiesApi = {
+  list: (params: { account_id: string; offset?: number; limit?: number }) =>
+    api.get<PaginatedResponse<Activity>>('/api/activities', { params }),
+  create: (data: { account_id: string; channel: string; direction: string; summary: string; contact_id?: string }) =>
+    api.post<Activity>('/api/activities', data),
+};
+
+// ── Bulk Actions ─────────────────────────────────────────
+
+export const bulkApi = {
+  updateAccounts: (ids: string[], updates: { tier?: number; assigned_rep_id?: string; deal_stage?: string }) =>
+    api.post<{ updated: number }>('/api/accounts/bulk-update', { ids, updates }),
+  deleteAccounts: (ids: string[]) =>
+    api.post<{ deleted: number }>('/api/accounts/bulk-delete', { ids }),
+};
+
+// ── Schedule Config ──────────────────────────────────────
+
+export interface ScheduleConfig {
+  id: string | null;
+  task_name: string;
+  cron_expression: string;
+  enabled: boolean;
+  last_triggered: string | null;
+}
+
+export const scheduleApi = {
+  get: () =>
+    api.get<ScheduleConfig>('/api/pipelines/schedule'),
+  update: (data: { cron_expression?: string; enabled?: boolean }) =>
+    api.put<ScheduleConfig>('/api/pipelines/schedule', data),
+};
+
+// ── Saved Views ─────────────────────────────────────────
+
+export interface SavedView {
+  id: string;
+  user_id: string;
+  name: string;
+  entity: string;
+  filters: Record<string, unknown>;
+  created_at: string;
+}
+
+export const savedViewsApi = {
+  list: (entity: string) =>
+    api.get<SavedView[]>('/api/saved-views', { params: { entity } }),
+  create: (data: { name: string; entity: string; filters: Record<string, unknown> }) =>
+    api.post<SavedView>('/api/saved-views', data),
+  delete: (id: string) =>
+    api.delete(`/api/saved-views/${id}`),
+};
+
+// ── Signal Dedup ────────────────────────────────────────
+
+export const signalDedupApi = {
+  findDuplicates: (accountId: string) =>
+    api.get<Signal[][]>(`/api/signals/duplicates`, { params: { account_id: accountId } }),
+  merge: (keepId: string, removeIds: string[]) =>
+    api.post<{ kept: string; deleted: number }>('/api/signals/merge', { keep_id: keepId, remove_ids: removeIds }),
+};
+
+// ── Reports ─────────────────────────────────────────────
+
+export interface SignalsBySource { source: string; count: number; }
+export interface SignalsByState { state: string; count: number; }
+export interface SignalsOverTime { date: string; count: number; }
+export interface TopAccount {
+  id: string;
+  name: string;
+  tier: number;
+  composite_score: number;
+  deal_stage: string;
+  segment: string | null;
+  signal_count: number;
+}
+export interface PipelineSummary {
+  tiers: { tier: number; count: number }[];
+  stages: { stage: string; count: number }[];
+}
+
+export const reportsApi = {
+  signalsBySource: () =>
+    api.get<SignalsBySource[]>('/api/reports/signals-by-source'),
+  signalsByState: () =>
+    api.get<SignalsByState[]>('/api/reports/signals-by-state'),
+  signalsOverTime: (days?: number) =>
+    api.get<SignalsOverTime[]>('/api/reports/signals-over-time', { params: { days } }),
+  pipelineSummary: () =>
+    api.get<PipelineSummary>('/api/reports/pipeline-summary'),
+  topAccounts: (limit?: number) =>
+    api.get<TopAccount[]>('/api/reports/top-accounts', { params: { limit } }),
+};
+
+// ── Enrichment ──────────────────────────────────────────
+
+export const enrichApi = {
+  enrich: (accountId: string) =>
+    api.post<Account>(`/api/accounts/${accountId}/enrich`),
+  bulkEnrich: (ids: string[]) =>
+    api.post<{ enriched: number }>('/api/accounts/bulk-enrich', { ids }),
+};
+
+// ── Sequences ───────────────────────────────────────────
+
+export interface SequenceStep {
+  step: number;
+  channel: string;
+  delay_days: number;
+  template: string;
+}
+
+export interface OutreachSequence {
+  id: string;
+  name: string;
+  steps: SequenceStep[];
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface SequenceEnrollment {
+  id: string;
+  sequence_id: string;
+  contact_id: string;
+  account_id: string;
+  current_step: number;
+  status: string;
+  next_send_at: string | null;
+  created_at: string;
+}
+
+export const sequencesApi = {
+  list: () =>
+    api.get<OutreachSequence[]>('/api/sequences'),
+  create: (data: { name: string; steps: SequenceStep[] }) =>
+    api.post<OutreachSequence>('/api/sequences', data),
+  get: (id: string) =>
+    api.get<OutreachSequence & { enrollment_count: number; active_count: number }>(`/api/sequences/${id}`),
+  delete: (id: string) =>
+    api.delete(`/api/sequences/${id}`),
+  enroll: (sequenceId: string, data: { contact_id: string; account_id: string }) =>
+    api.post<SequenceEnrollment>(`/api/sequences/${sequenceId}/enroll`, data),
+  enrollments: (sequenceId: string) =>
+    api.get<SequenceEnrollment[]>(`/api/sequences/${sequenceId}/enrollments`),
+  updateEnrollment: (enrollmentId: string, data: { status?: string }) =>
+    api.patch<SequenceEnrollment>(`/api/sequences/enrollments/${enrollmentId}`, data),
+};
+
 export default api;

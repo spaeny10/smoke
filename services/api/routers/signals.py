@@ -157,3 +157,59 @@ async def create_signal(data: SignalCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(signal)
     return SignalRead.model_validate(signal)
+
+
+@router.get("/duplicates", response_model=list[list[SignalRead]])
+async def find_duplicates(
+    account_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Find signals with the same source + title on an account."""
+    result = await db.execute(
+        select(Signal)
+        .where(Signal.account_id == account_id)
+        .order_by(Signal.source, Signal.title, Signal.detected_at.desc())
+    )
+    all_signals = result.scalars().all()
+
+    # Group by (source, title)
+    groups: dict[tuple[str, str], list] = {}
+    for s in all_signals:
+        key = (s.source, s.title)
+        groups.setdefault(key, []).append(s)
+
+    # Only return groups with 2+ signals
+    duplicates = [
+        [SignalRead.model_validate(s) for s in group]
+        for group in groups.values()
+        if len(group) > 1
+    ]
+    return duplicates
+
+
+@router.post("/merge")
+async def merge_signals(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    """Merge duplicate signals: keep one, delete the rest."""
+    keep_id = data.get("keep_id")
+    remove_ids = data.get("remove_ids", [])
+    if not keep_id or not remove_ids:
+        raise HTTPException(status_code=400, detail="keep_id and remove_ids required")
+
+    # Verify keep_id exists
+    keep = await db.scalar(select(Signal).where(Signal.id == keep_id))
+    if not keep:
+        raise HTTPException(status_code=404, detail="Signal to keep not found")
+
+    deleted = 0
+    for rid in remove_ids:
+        if rid == keep_id:
+            continue
+        sig = await db.scalar(select(Signal).where(Signal.id == rid))
+        if sig:
+            await db.delete(sig)
+            deleted += 1
+    await db.commit()
+    return {"kept": keep_id, "deleted": deleted}
