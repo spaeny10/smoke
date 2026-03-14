@@ -70,6 +70,18 @@ async def require_auth(
     return user
 
 
+async def require_director(
+    user: User = Depends(require_auth),
+) -> User:
+    """Raises 403 if user is not a director."""
+    if user.role != 'director':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Director access required",
+        )
+    return user
+
+
 async def get_visible_account_ids(
     user: User, view: str, db: AsyncSession
 ) -> Optional[list]:

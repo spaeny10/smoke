@@ -119,6 +119,16 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface TeamRead {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface TeamWithMembers extends TeamRead {
+  members: UserProfile[];
+}
+
 // ── API functions ───────────────────────────────────────
 
 export interface ImportResult {
@@ -230,6 +240,22 @@ export const authApi = {
     api.post<{ access_token: string; token_type: string }>('/api/auth/google', { credential }),
   me: () =>
     api.get<UserProfile>('/api/auth/me'),
+};
+
+export const teamsApi = {
+  list: () =>
+    api.get<TeamWithMembers[]>('/api/teams'),
+  create: (data: { name: string }) =>
+    api.post<TeamRead>('/api/teams', data),
+  delete: (id: string) =>
+    api.delete(`/api/teams/${id}`),
+};
+
+export const usersApi = {
+  list: () =>
+    api.get<UserProfile[]>('/api/users'),
+  update: (id: string, data: { role?: string; team_id?: string | null }) =>
+    api.put<UserProfile>(`/api/users/${id}`, data),
 };
 
 export default api;

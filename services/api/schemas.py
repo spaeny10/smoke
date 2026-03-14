@@ -213,6 +213,29 @@ class UserRead(BaseModel):
     created_at: datetime
 
 
+# ── Team ─────────────────────────────────────────────────
+
+class TeamCreate(BaseModel):
+    name: str
+
+
+class TeamRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    created_at: datetime
+
+
+class TeamWithMembers(TeamRead):
+    members: List[UserRead] = []
+
+
+class UserRoleUpdate(BaseModel):
+    role: Optional[str] = None
+    team_id: Optional[str] = None
+
+
 # ── Priority Queue ──────────────────────────────────────
 
 class PriorityQueueItem(BaseModel):

@@ -208,7 +208,7 @@ async def demo_outreach(db: AsyncSession = Depends(get_db)):
         "signals_used": len(signals)
     }
 
-from services.api.routers import accounts, contacts, projects, signals, auth, ai
+from services.api.routers import accounts, contacts, projects, signals, auth, ai, teams, users
 
 app.include_router(auth.router)
 app.include_router(accounts.router)
@@ -216,6 +216,8 @@ app.include_router(contacts.router)
 app.include_router(projects.router)
 app.include_router(signals.router)
 app.include_router(ai.router)
+app.include_router(teams.router)
+app.include_router(users.router)
 
 # Serve built frontend static files in production
 from pathlib import Path

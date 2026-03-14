@@ -34,6 +34,7 @@ import Inbox from './Inbox';
 import ContactsList from './ContactsList';
 import ContactDetail from './ContactDetail';
 import LoginPage from './LoginPage';
+import SettingsPage from './SettingsPage';
 import { metricsApi, outreachApi, authApi, accountsApi, type UserProfile, type PriorityQueueItem } from './api';
 
 const chartData1 = [
@@ -269,7 +270,10 @@ export default function App() {
 
         {/* Bottom Section */}
         <div className="flex flex-col w-full mt-auto space-y-1 mb-6 border-b border-white/5 pb-6">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white transition-colors">
+          <div
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'settings' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            onClick={() => { setActiveTab('settings'); setSelectedAccountId(null); setSelectedContactId(null); }}
+          >
             <Settings size={18} />
             <span className="text-sm font-medium">Settings</span>
           </div>
@@ -332,6 +336,8 @@ export default function App() {
         <SmokeAIDashboard />
       ) : activeTab === 'inbox' ? (
         <Inbox />
+      ) : activeTab === 'settings' ? (
+        <SettingsPage userProfile={userProfile} />
       ) : (
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
         {/* Top Header */}
