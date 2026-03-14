@@ -71,10 +71,10 @@ async def google_auth(data: GoogleAuthRequest, db: AsyncSession = Depends(get_db
             google_requests.Request(),
             GOOGLE_CLIENT_ID,
         )
-    except ValueError:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Google credential",
+            detail=f"Google auth failed: {type(e).__name__}: {e}",
         )
 
     google_id = idinfo["sub"]
@@ -109,8 +109,14 @@ async def google_auth(data: GoogleAuthRequest, db: AsyncSession = Depends(get_db
             )
             db.add(user)
 
-    await db.commit()
-    await db.refresh(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {type(e).__name__}: {e}",
+        )
 
     token = create_access_token({"sub": user.id, "team_id": user.team_id})
     return TokenResponse(access_token=token)
