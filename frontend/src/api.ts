@@ -292,4 +292,26 @@ export const signalGatesApi = {
     api.delete(`/api/signal-gates/${id}`),
 };
 
+// ── Pipelines ───────────────────────────────────────────
+
+export interface PipelineScanStatus {
+  running: boolean;
+  last_run: string | null;
+  last_result: {
+    permits: number;
+    contracts: number;
+    news: number;
+    osha: number;
+    total_new: number;
+  } | null;
+  error: string | null;
+}
+
+export const pipelinesApi = {
+  run: () =>
+    api.post<{ status: string; message: string }>('/api/pipelines/run'),
+  status: () =>
+    api.get<PipelineScanStatus>('/api/pipelines/status'),
+};
+
 export default api;

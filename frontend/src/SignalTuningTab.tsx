@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Trash2, Pencil, Loader2, Filter, MapPin, DollarSign, Building2, Users, X, ChevronDown } from 'lucide-react';
-import { signalGatesApi, type SignalGate, type SignalGateConditions, type UserProfile } from './api';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Trash2, Pencil, Loader2, Filter, MapPin, DollarSign, Building2, Users, X, ChevronDown, Radar, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { signalGatesApi, pipelinesApi, type SignalGate, type SignalGateConditions, type PipelineScanStatus, type UserProfile } from './api';
 
 interface SignalTuningTabProps {
   userProfile: UserProfile;
@@ -54,6 +54,49 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
   const [saving, setSaving] = useState(false);
 
   const isDirector = userProfile.role === 'director';
+
+  // Scan state
+  const [scanStatus, setScanStatus] = useState<PipelineScanStatus | null>(null);
+  const [scanStarting, setScanStarting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchScanStatus = useCallback(() => {
+    if (!isDirector) return;
+    pipelinesApi.status()
+      .then(res => setScanStatus(res.data))
+      .catch(() => {});
+  }, [isDirector]);
+
+  // Poll while scan is running
+  useEffect(() => {
+    if (!isDirector) return;
+    fetchScanStatus();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [isDirector, fetchScanStatus]);
+
+  useEffect(() => {
+    if (scanStatus?.running) {
+      if (!pollRef.current) {
+        pollRef.current = setInterval(fetchScanStatus, 3000);
+      }
+    } else {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    }
+  }, [scanStatus?.running, fetchScanStatus]);
+
+  const handleRunScan = () => {
+    setScanStarting(true);
+    pipelinesApi.run()
+      .then(() => {
+        setScanStatus(prev => prev ? { ...prev, running: true } : { running: true, last_run: null, last_result: null, error: null });
+        fetchScanStatus();
+      })
+      .catch(() => {})
+      .finally(() => setScanStarting(false));
+  };
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -258,6 +301,76 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
             </div>
           );
         })
+      )}
+
+      {/* Run Scan section */}
+      {isDirector && (
+        <div className="bg-[#1a1a1c] rounded-[24px] border border-white/5 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${scanStatus?.running ? 'bg-amber-500/15' : 'bg-indigo-600/15'}`}>
+                <Radar size={16} className={scanStatus?.running ? 'text-amber-400 animate-pulse' : 'text-indigo-400'} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Signal Scan</h3>
+                <p className="text-xs text-[#8b8b93]">
+                  {scanStatus?.running
+                    ? 'Scanning pipelines for new signals...'
+                    : scanStatus?.last_run
+                      ? `Last run: ${new Date(scanStatus.last_run).toLocaleString()}`
+                      : 'Run all pipelines to fetch new signals'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRunScan}
+              disabled={scanStarting || scanStatus?.running}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50"
+            >
+              {scanStatus?.running ? (
+                <><Loader2 size={15} className="animate-spin" /> Scanning...</>
+              ) : scanStarting ? (
+                <><Loader2 size={15} className="animate-spin" /> Starting...</>
+              ) : (
+                <><Radar size={15} /> Run Scan</>
+              )}
+            </button>
+          </div>
+
+          {/* Last result */}
+          {scanStatus?.last_result && !scanStatus.running && (
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                <span className="text-xs font-medium text-emerald-400">
+                  {scanStatus.last_result.total_new} new signals found
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Permits', count: scanStatus.last_result.permits },
+                  { label: 'Contracts', count: scanStatus.last_result.contracts },
+                  { label: 'News', count: scanStatus.last_result.news },
+                  { label: 'OSHA', count: scanStatus.last_result.osha },
+                ].map(p => (
+                  <div key={p.label} className="bg-[#141416] rounded-xl p-3 text-center border border-white/5">
+                    <div className="text-lg font-semibold text-white">{p.count}</div>
+                    <div className="text-[10px] text-[#8b8b93] uppercase tracking-wider">{p.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {scanStatus?.error && !scanStatus.running && (
+            <div className="mt-4 pt-4 border-t border-white/5 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-400">{scanStatus.error}</p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create / Edit Modal */}
