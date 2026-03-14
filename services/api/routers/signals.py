@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from packages.db.session import get_db
 from packages.db.models import Signal, Account, User
@@ -25,7 +26,7 @@ async def list_signals(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
-    query = select(Signal)
+    query = select(Signal).options(selectinload(Signal.account))
     count_query = select(func.count(Signal.id))
 
     # Role-based visibility scoping
@@ -66,7 +67,13 @@ async def list_signals(
     result = await db.execute(
         query.order_by(Signal.detected_at.desc()).offset(offset).limit(limit)
     )
-    items = [SignalRead.model_validate(s) for s in result.scalars().all()]
+    signals = result.scalars().all()
+    items = []
+    for s in signals:
+        sr = SignalRead.model_validate(s)
+        if s.account:
+            sr.account_name = s.account.name
+        items.append(sr)
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 

@@ -179,6 +179,9 @@ export default function SmokeAIDashboard() {
                       </div>
                       <div>
                         <span className="text-xs font-semibold text-[#8b8b93] tracking-wider uppercase">{signal.source}</span>
+                        {signal.account_name && (
+                          <p className="text-xs text-indigo-400 font-medium">{signal.account_name}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -189,7 +192,13 @@ export default function SmokeAIDashboard() {
                     </div>
                   </div>
                   <h3 className="text-white font-medium mb-2 group-hover:text-indigo-400 transition-colors">{signal.title}</h3>
-                  <p className="text-sm text-[#8b8b93] line-clamp-2 mb-3">{signal.detail || `${signal.source} signal — ${signal.signal_type}`}</p>
+                  <p className="text-sm text-[#8b8b93] line-clamp-2 mb-2">{signal.detail || `${signal.source} signal — ${signal.signal_type}`}</p>
+                  {(signal.location_city || signal.project_value) && (
+                    <div className="flex items-center gap-3 mb-3">
+                      {signal.location_city && <span className="text-xs text-[#8b8b93]">{signal.location_city}{signal.location_state ? `, ${signal.location_state}` : ''}</span>}
+                      {signal.project_value != null && signal.project_value > 0 && <span className="text-xs text-emerald-400 font-medium">${(signal.project_value / 1_000_000).toFixed(1)}M</span>}
+                    </div>
+                  )}
 
                   {/* Action buttons */}
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

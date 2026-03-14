@@ -101,6 +101,7 @@ export interface Signal {
   location_state: string | null;
   detected_at: string;
   created_at: string;
+  account_name: string | null;
 }
 
 export interface PriorityQueueItem {
