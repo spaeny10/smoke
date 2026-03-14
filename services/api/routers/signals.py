@@ -2,10 +2,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Signal, Account, User, SignalGate
+from packages.db.models import Signal, Account, User
 from services.api.schemas import SignalCreate, SignalRead, SignalStatusUpdate, PaginatedResponse
 from services.api.auth import get_current_user, get_visible_account_ids
 
@@ -59,48 +59,8 @@ async def list_signals(
         count_query = count_query.join(Account).where(Account.tier == tier)
         has_account_join = True
 
-    # --- Signal Gate filtering ---
-    gates_result = await db.execute(
-        select(SignalGate).where(SignalGate.enabled == True)
-    )
-    enabled_gates = gates_result.scalars().all()
-
-    if enabled_gates:
-        gate_clauses = []
-        needs_account_join = False
-
-        for gate in enabled_gates:
-            conds = gate.conditions or {}
-            parts = []
-
-            if conds.get('states'):
-                parts.append(Signal.location_state.in_(conds['states']))
-            if conds.get('sources'):
-                parts.append(Signal.source.in_(conds['sources']))
-            if conds.get('min_value') is not None:
-                parts.append(Signal.project_value >= conds['min_value'])
-            if conds.get('max_value') is not None:
-                parts.append(Signal.project_value <= conds['max_value'])
-            if conds.get('segments'):
-                needs_account_join = True
-                parts.append(Account.segment.in_(conds['segments']))
-            if conds.get('min_employee_count') is not None:
-                needs_account_join = True
-                parts.append(Account.employee_count >= conds['min_employee_count'])
-            if conds.get('max_employee_count') is not None:
-                needs_account_join = True
-                parts.append(Account.employee_count <= conds['max_employee_count'])
-
-            if parts:
-                gate_clauses.append(and_(*parts))
-
-        if gate_clauses:
-            if needs_account_join and not has_account_join:
-                query = query.join(Account)
-                count_query = count_query.join(Account)
-            combined = or_(*gate_clauses)
-            query = query.where(combined)
-            count_query = count_query.where(combined)
+    # Note: Signal gates control pipeline ingestion, not the list view.
+    # Users need to see all signals in the triage feed to review them.
 
     total = (await db.execute(count_query)).scalar() or 0
     result = await db.execute(
