@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Inbox as InboxIcon, Send, Archive, MessageSquare, Mail, AlertCircle, Phone } from 'lucide-react';
+import { Search, Filter, Inbox as InboxIcon, Send, Archive, MessageSquare, Mail, AlertCircle, Phone, ArrowLeft } from 'lucide-react';
 
 const MOCK_MESSAGES = [
   {
@@ -59,8 +59,8 @@ export default function Inbox() {
     <div className="flex-1 flex overflow-hidden bg-[#141416] text-[#e2e2e5]">
       
       {/* List Pane */}
-      <div className="w-[400px] border-r border-[#202022] flex flex-col bg-[#1a1a1c] shrink-0">
-        <div className="p-6 pb-4 border-b border-white/5">
+      <div className={`w-full md:w-[400px] border-r border-[#202022] flex flex-col bg-[#1a1a1c] shrink-0 ${selectedMsgId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 md:p-6 pb-4 border-b border-white/5">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-xl font-semibold text-white">Communications</h1>
             <div className="flex gap-2">
@@ -135,12 +135,18 @@ export default function Inbox() {
       </div>
 
       {/* Detail/Conversation Pane */}
-      <div className="flex-1 flex flex-col bg-[#141416]">
+      <div className={`flex-1 flex flex-col bg-[#141416] ${!selectedMsgId ? 'hidden md:flex' : 'flex'}`}>
         {selectedMsg ? (
           <>
             {/* Thread Header */}
-            <div className="h-20 shrink-0 border-b border-[#202022] bg-[#1a1a1c] px-8 flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="h-20 shrink-0 border-b border-[#202022] bg-[#1a1a1c] px-4 md:px-8 flex items-center justify-between">
+              <div className="flex items-center gap-2 md:gap-4">
+                <button
+                  onClick={() => setSelectedMsgId(null)}
+                  className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors shrink-0"
+                >
+                  <ArrowLeft size={18} />
+                </button>
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-400 flex items-center justify-center font-bold text-lg border border-indigo-500/20">
                   {selectedMsg.contact.split(' ').map(n => n[0]).join('')}
                 </div>
@@ -169,7 +175,7 @@ export default function Inbox() {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-6">
               {selectedMsg.history.map((h, i) => (
                 <div key={i} className={`flex flex-col max-w-[80%] ${h.sender === 'me' ? 'self-end items-end' : 'self-start items-start'}`}>
                   <span className="text-xs text-[#8b8b93] mb-1 px-1">{h.time}</span>

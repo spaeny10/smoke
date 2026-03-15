@@ -51,9 +51,9 @@ export default function AttributionDashboard() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-8">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6 lg:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Attribution Reporting</h1>
           <p className="text-sm text-[#8b8b93]">Real-time signal analytics and pipeline intelligence.</p>
@@ -61,16 +61,16 @@ export default function AttributionDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <KPICard title="Total Signals" value={String(totalSignals)} icon={<Target size={20} className="text-indigo-400" />} />
         <KPICard title="Total Accounts" value={String(totalAccounts)} icon={<Users size={20} className="text-blue-400" />} />
         <KPICard title="Signals This Week" value={String(signalsThisWeek)} icon={<TrendingUp size={20} className="text-orange-400" />} />
         <KPICard title="High-Score Accounts" value={String(highScoreAccounts)} icon={<DollarSign size={20} className="text-green-400" />} />
       </div>
 
-      <div className="grid grid-cols-12 gap-6 mb-8">
+      <div className="grid grid-cols-12 gap-4 lg:gap-6 mb-8">
         {/* Signals Over Time (Area Chart) */}
-        <div className="col-span-8 bg-[#1a1a1c] border border-white/5 rounded-2xl p-6">
+        <div className="col-span-12 lg:col-span-8 bg-[#1a1a1c] border border-white/5 rounded-2xl p-4 lg:p-6">
           <h2 className="text-white font-semibold mb-6">Signals Over Time (Last 30 Days)</h2>
           <div className="h-72 w-full">
             {overTime.length > 0 ? (
@@ -95,7 +95,7 @@ export default function AttributionDashboard() {
         </div>
 
         {/* Signals by Source (Pie Chart) */}
-        <div className="col-span-4 bg-[#1a1a1c] border border-white/5 rounded-2xl p-6">
+        <div className="col-span-12 lg:col-span-4 bg-[#1a1a1c] border border-white/5 rounded-2xl p-4 lg:p-6">
           <h2 className="text-white font-semibold mb-6">Signals by Source</h2>
           <div className="h-52 w-full">
             {bySource.length > 0 ? (
@@ -127,9 +127,9 @@ export default function AttributionDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 mb-8">
+      <div className="grid grid-cols-12 gap-4 lg:gap-6 mb-8">
         {/* Signals by State (Bar Chart) */}
-        <div className="col-span-6 bg-[#1a1a1c] border border-white/5 rounded-2xl p-6">
+        <div className="col-span-12 lg:col-span-6 bg-[#1a1a1c] border border-white/5 rounded-2xl p-4 lg:p-6">
           <h2 className="text-white font-semibold mb-6">Signals by State</h2>
           <div className="h-72 w-full">
             {byState.length > 0 ? (
@@ -148,7 +148,7 @@ export default function AttributionDashboard() {
         </div>
 
         {/* Pipeline Summary */}
-        <div className="col-span-6 bg-[#1a1a1c] border border-white/5 rounded-2xl p-6">
+        <div className="col-span-12 lg:col-span-6 bg-[#1a1a1c] border border-white/5 rounded-2xl p-4 lg:p-6">
           <h2 className="text-white font-semibold mb-6">Pipeline Summary</h2>
           {pipeline && (
             <div className="space-y-6">

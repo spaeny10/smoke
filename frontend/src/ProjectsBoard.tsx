@@ -82,8 +82,8 @@ export default function ProjectsBoard({ onProjectClick }: ProjectsBoardProps = {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
+      <div className="flex justify-between items-center mb-6 lg:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Projects Pipeline</h1>
           <p className="text-sm text-[#8b8b93]">Drag and drop specific site deployments through the sales cycle.</p>
@@ -96,13 +96,13 @@ export default function ProjectsBoard({ onProjectClick }: ProjectsBoardProps = {
         </button>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-180px)]">
+      <div className="flex gap-4 lg:gap-6 overflow-x-auto pb-4 h-[calc(100vh-140px)] lg:h-[calc(100vh-180px)]">
         {COLUMNS.map(column => {
           const columnProjects = projects.filter(p => p.stage === column.id);
           const columnTotal = columnProjects.reduce((sum, p) => sum + p.value, 0);
 
           return (
-            <div key={column.id} className="flex flex-col w-80 shrink-0">
+            <div key={column.id} className="flex flex-col w-72 md:w-80 shrink-0">
               <div className="flex justify-between items-center mb-4 px-1">
                 <h3 className="text-sm font-medium text-[#e2e2e5]">{column.title}</h3>
                 <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export default function ProjectsBoard({ onProjectClick }: ProjectsBoardProps = {
       {/* Create Project Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-lg font-semibold text-white">New Project</h2>
               <button onClick={() => setShowCreateModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">

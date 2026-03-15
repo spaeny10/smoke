@@ -95,7 +95,7 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
     <div className="flex-1 overflow-y-auto overflow-x-hidden relative bg-[#141416] text-[#e2e2e5]">
 
       {/* Top Navigation Bar */}
-      <div className="sticky top-0 z-10 bg-[#141416]/80 backdrop-blur-md border-b border-white/5 px-8 py-4 flex items-center justify-between shadow-sm">
+      <div className="sticky top-0 z-10 bg-[#141416]/80 backdrop-blur-md border-b border-white/5 px-4 lg:px-8 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate('contacts')}
@@ -128,7 +128,7 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
         </div>
       </div>
 
-      <div className="p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
 
         {/* Profile Header Card */}
         <div className="bg-[#1a1a1c] border border-white/5 rounded-xl p-6 relative overflow-hidden group">
@@ -182,7 +182,7 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
           {/* Left Column - Contact Details */}
           <div className="col-span-1 space-y-6">
@@ -343,7 +343,7 @@ export default function ContactDetail({ contactId, onNavigate }: ContactDetailPr
             </div>
 
             {/* Activity Placeholder */}
-            <div className="bg-[#1a1a1c] border border-white/5 rounded-xl p-5 h-80 overflow-y-auto">
+            <div className="bg-[#1a1a1c] border border-white/5 rounded-xl p-5 h-60 md:h-80 overflow-y-auto">
               <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#1a1a1c] pb-2 z-10 border-b border-white/5">
                 <h3 className="text-sm font-medium text-white">Recent Activity</h3>
               </div>

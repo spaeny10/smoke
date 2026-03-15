@@ -21,7 +21,8 @@ import {
   LogOut,
   MapPin,
   X,
-  ArrowRight
+  ArrowRight,
+  Menu
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import AccountDetail from './AccountDetail';
@@ -94,6 +95,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<GlobalSearchResult | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('month');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Auth check on mount / token change
   useEffect(() => {
@@ -173,6 +175,11 @@ export default function App() {
     setUserProfile(null);
   };
 
+  const navigateTo = (tab: string) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+  };
+
   useEffect(() => {
     localStorage.setItem('smoke_activeTab', activeTab);
     if (selectedProjectId) {
@@ -198,8 +205,24 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#141416] text-[#e2e2e5] font-sans overflow-hidden">
-      {/* Expanded Sidebar */}
-      <aside className="w-[260px] border-r border-[#202022] flex flex-col py-6 px-4 bg-[#0a0a0b] z-10 shrink-0">
+      {/* Mobile hamburger */}
+      <button
+        onClick={() => setSidebarOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-30 w-10 h-10 rounded-xl bg-[#202022] border border-white/10 flex items-center justify-center text-[#8b8b93] hover:text-white hover:bg-[#2a2a2d] transition-colors"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-[260px] border-r border-[#202022] flex flex-col py-6 px-4 bg-[#0a0a0b] shrink-0 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:relative lg:transform-none`}>
         
         {/* Logo and App Name */}
         <div className="flex items-center justify-between mb-8 px-2">
@@ -216,17 +239,17 @@ export default function App() {
         
         {/* Navigation Section 1 */}
         <div className="flex flex-col space-y-1 w-full mb-6">
-          <div 
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'dashboard' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => navigateTo('dashboard')}
           >
             <LayoutDashboard size={18} />
             <span className="text-sm font-medium">Dashboard</span>
           </div>
 
-          <div 
+          <div
             className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors relative ${activeTab === 'odin' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('odin')}
+            onClick={() => navigateTo('odin')}
           >
             {activeTab === 'odin' && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#3b82f6] rounded-r-md"></div>
@@ -237,10 +260,10 @@ export default function App() {
             </div>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
-          
+
           <div
             className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('companies')}
+            onClick={() => navigateTo('companies')}
           >
             <div className="flex items-center gap-3">
               <Building2 size={18} />
@@ -253,25 +276,25 @@ export default function App() {
             )}
           </div>
 
-          <div 
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'contacts' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('contacts')}
+            onClick={() => navigateTo('contacts')}
           >
             <Users size={18} />
             <span className="text-sm font-medium">Contacts</span>
           </div>
-          
-          <div 
+
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'inbox' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('inbox')}
+            onClick={() => navigateTo('inbox')}
           >
             <Mail size={18} />
             <span className="text-sm font-medium">Inbox</span>
           </div>
-          
-          <div 
+
+          <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'attribution' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('attribution')}
+            onClick={() => navigateTo('attribution')}
           >
             <PieChartIcon size={18} />
             <span className="text-sm font-medium">Attribution</span>
@@ -279,7 +302,7 @@ export default function App() {
 
           <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'map' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('map')}
+            onClick={() => navigateTo('map')}
           >
             <MapPin size={18} />
             <span className="text-sm font-medium">Map</span>
@@ -287,15 +310,15 @@ export default function App() {
 
           <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'blueprints' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('blueprints')}
+            onClick={() => navigateTo('blueprints')}
           >
             <Layers size={18} />
             <span className="text-sm font-medium">Blueprints</span>
           </div>
-          
+
           <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'deals' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('deals')}
+            onClick={() => navigateTo('deals')}
           >
             <DollarSign size={18} />
             <span className="text-sm font-medium">Projects</span>
@@ -303,7 +326,7 @@ export default function App() {
 
           <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'sequences' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => setActiveTab('sequences')}
+            onClick={() => navigateTo('sequences')}
           >
             <Repeat size={18} />
             <span className="text-sm font-medium">Loops</span>
@@ -314,13 +337,13 @@ export default function App() {
         <div className="flex flex-col w-full mt-auto space-y-1 mb-6 border-b border-white/5 pb-6">
           <div
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'settings' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => { setActiveTab('settings'); setSelectedAccountId(null); setSelectedContactId(null); }}
+            onClick={() => { navigateTo('settings'); setSelectedAccountId(null); setSelectedContactId(null); }}
           >
             <Settings size={18} />
             <span className="text-sm font-medium">Settings</span>
           </div>
           <div
-            onClick={handleLogout}
+            onClick={() => { handleLogout(); setSidebarOpen(false); }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-red-500/10 hover:text-red-400 transition-colors"
           >
             <LogOut size={18} />
@@ -383,9 +406,9 @@ export default function App() {
       ) : activeTab === 'settings' ? (
         <SettingsPage userProfile={userProfile} />
       ) : (
-      <main className="flex-1 overflow-y-auto overflow-x-hidden p-8 relative">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 relative">
         {/* Top Header */}
-        <header className="flex justify-between items-center mb-8">
+        <header className="flex flex-wrap justify-between items-center mb-6 lg:mb-8 gap-y-4 pl-10 lg:pl-0">
           <div className="flex items-center gap-4">
             <div className="relative group cursor-pointer">
                <div className="w-12 h-12 rounded-full ring-2 ring-[#202022] group-hover:ring-indigo-500 transition-all flex items-center justify-center text-white font-bold text-lg" style={{ backgroundColor: INITIALS_COLORS[(userProfile?.name?.length || 0) % INITIALS_COLORS.length] }}>
@@ -401,8 +424,8 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            
+          <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+
             {/* View Toggle */}
             <div className="flex bg-[#202022] p-1 rounded-xl border border-white/5 mr-2">
               <button 
@@ -439,7 +462,7 @@ export default function App() {
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="absolute top-full right-0 mt-2 w-[calc(100vw-2rem)] md:w-80 bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
                   <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#202022]/50">
                     <h3 className="text-white font-semibold">Notifications</h3>
                     {unreadCount > 0 && (
@@ -525,10 +548,10 @@ export default function App() {
         </header>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-12 gap-6 pb-20">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 pb-20">
+
             {/* AI Assistant Card (Left Span 5) */}
-          <div className="col-span-5 bg-[#1a1a1c] rounded-[24px] p-8 border border-white/5 flex flex-col relative overflow-hidden group">
+          <div className="lg:col-span-5 bg-[#1a1a1c] rounded-[24px] p-5 lg:p-8 border border-white/5 flex flex-col relative overflow-hidden group">
             {/* Subtle glow effect behind card */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -z-10 group-hover:bg-indigo-500/20 transition-all duration-700"></div>
             
@@ -542,7 +565,7 @@ export default function App() {
                 <p className="text-[#8b8b93] mb-2 text-sm text-center">Hello, I am SMOKE AI, your Sales Intelligence Agent</p>
                 <h2 className="text-3xl font-semibold text-white mb-8 text-center tracking-tight">How can I help you today?</h2>
                 
-                <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
                   <div 
                     onClick={async () => {
                       setChatMessages([{role: 'user', content: "Who should I call today?"}]);
@@ -676,7 +699,7 @@ export default function App() {
           </div>
 
           {/* Metrics Grid (Right Span 7) */}
-          <div className="col-span-7 grid grid-cols-2 gap-6">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-4 lg:gap-6">
             
             {/* Metric 1 */}
             <div className="metric-card group">
@@ -819,7 +842,7 @@ export default function App() {
           {/* Bottom Row */}
           
           {/* Today's Priorities (Left Span 5) */}
-          <div className="col-span-5 bg-[#1a1a1c] border border-white/5 rounded-[24px] p-6 text-sm">
+          <div className="lg:col-span-5 bg-[#1a1a1c] border border-white/5 rounded-[24px] p-4 lg:p-6 text-sm">
             <div className="flex justify-between items-center mb-5">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-md bg-indigo-500/15 flex items-center justify-center border border-indigo-500/20">
@@ -883,7 +906,7 @@ export default function App() {
           </div>
 
           {/* Pipeline By Channel (Right Span 7) */}
-          <div className="col-span-7 bg-[#1a1a1c] border border-white/5 rounded-[24px] p-6 flex flex-col">
+          <div className="lg:col-span-7 bg-[#1a1a1c] border border-white/5 rounded-[24px] p-4 lg:p-6 flex flex-col">
             <div className="flex justify-between items-center mb-6">
                <h3 className="font-semibold text-white flex items-center gap-2">
                   Signals By Source <Info size={14} className="text-[#8b8b93]" />
@@ -895,8 +918,8 @@ export default function App() {
                 </div>
             </div>
 
-            <div className="flex-1 flex items-center pb-4">
-              <div className="w-1/2 pr-4 space-y-3">
+            <div className="flex-1 flex flex-col md:flex-row items-center pb-4">
+              <div className="w-full md:w-1/2 pr-0 md:pr-4 space-y-3">
                 {pieData.map((item, index) => (
                   <div key={index} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
@@ -908,7 +931,7 @@ export default function App() {
                 ))}
               </div>
               
-              <div className="w-1/2 h-full flex items-center justify-center relative min-h-[160px]">
+              <div className="w-full md:w-1/2 h-full flex items-center justify-center relative min-h-[160px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -943,7 +966,7 @@ export default function App() {
       {/* Global Search Overlay */}
       {showSearch && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[15vh]" onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}>
-          <div className="w-[560px] bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="w-[calc(100vw-2rem)] max-w-[560px] bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 px-5 py-4 border-b border-white/5">
               <Search size={18} className="text-[#8b8b93] shrink-0" />
               <input

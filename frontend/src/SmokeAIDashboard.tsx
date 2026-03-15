@@ -260,10 +260,10 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
       {/* Left Pane - Incoming Signals Feed */}
-      <div className="w-1/2 border-r border-white/5 flex flex-col bg-[#141416]">
-        <div className="p-6 border-b border-white/5 bg-[#1a1a1c]">
+      <div className="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-white/5 flex flex-col bg-[#141416] min-h-0 flex-1 lg:flex-auto">
+        <div className="p-4 lg:p-6 border-b border-white/5 bg-[#1a1a1c]">
           <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-xl font-bold text-white mb-1">Incoming Signals</h2>
@@ -613,7 +613,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
       </div>
 
       {/* Right Pane — Triage Panel or AI Chat */}
-      <div className="w-1/2 flex flex-col bg-[#141416] relative">
+      <div className="w-full lg:w-1/2 flex flex-col bg-[#141416] relative min-h-0 flex-1 lg:flex-auto">
         {selectedSignal ? (
           /* ──────── TRIAGE PANEL ──────── */
           <>

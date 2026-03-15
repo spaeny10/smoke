@@ -5,7 +5,7 @@ export default function BlueprintsDashboard() {
   const [selectedSegment, setSelectedSegment] = useState('Enterprise Tier 1');
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden p-8">
+    <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden p-4 lg:p-8">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -36,9 +36,9 @@ export default function BlueprintsDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
         {/* Left Column: The Blueprint Journey */}
-        <div className="col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6">
             <div className="flex justify-between items-center mb-8">
               <div>
@@ -114,7 +114,7 @@ export default function BlueprintsDashboard() {
         </div>
 
         {/* Right Column: Prescriptive Actions */}
-        <div className="col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-6">
           <div className="bg-gradient-to-br from-indigo-900/40 to-purple-900/20 border border-indigo-500/30 rounded-2xl p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
             

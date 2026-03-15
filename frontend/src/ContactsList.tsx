@@ -51,8 +51,8 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
     <div className="flex-1 flex flex-col h-full bg-[#141416] text-[#e2e2e5]">
 
       {/* Header Area */}
-      <div className="p-6 pb-2 border-b border-white/5">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4 md:p-6 pb-2 border-b border-white/5">
+        <div className="flex items-center gap-4 mb-4 md:mb-6">
           <div className="w-8 h-8 rounded-md bg-[#202022] flex items-center justify-center pointer-events-none border border-white/5">
             <UsersIcon />
           </div>
@@ -63,7 +63,7 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
         </div>
 
         {/* Toolbar */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-y-3">
           <div className="flex items-center">
             <button className="flex items-center justify-between text-sm py-2 px-3 hover:bg-[#202022] rounded-md transition-colors min-w-[140px]">
               <span className="font-medium text-[#e2e2e5]">All Contacts</span>
@@ -71,15 +71,15 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+            <div className="relative w-full md:w-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b8b93]" />
               <input
                 type="text"
                 placeholder="Search contacts..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="bg-[#1a1a1c] border border-white/10 rounded-lg py-1.5 pl-9 pr-3 text-sm focus:outline-none focus:border-indigo-500 w-64 text-white hover:border-white/20 transition-colors placeholder-[#8b8b93]"
+                className="bg-[#1a1a1c] border border-white/10 rounded-lg py-1.5 pl-9 pr-3 text-sm focus:outline-none focus:border-indigo-500 w-full md:w-64 text-white hover:border-white/20 transition-colors placeholder-[#8b8b93]"
               />
             </div>
 
@@ -107,7 +107,7 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
+      <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
         <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Name</div>
         <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Company</div>
         <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Contact Info</div>
@@ -146,9 +146,9 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
               <div
                 key={contact.id}
                 onClick={() => onContactClick?.(contact.id)}
-                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group items-center"
+                className="flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-12 md:gap-4 md:px-6 md:py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group md:items-center"
               >
-                <div className="col-span-3 flex items-center gap-3">
+                <div className="md:col-span-3 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20 flex-shrink-0">
                     {initial}
                   </div>
@@ -159,14 +159,14 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
                 </div>
 
                 <div
-                  className="col-span-2 flex items-center gap-2 hover:text-indigo-400 transition-colors group/company cursor-pointer w-fit"
+                  className="md:col-span-2 flex items-center gap-2 hover:text-indigo-400 transition-colors group/company cursor-pointer w-fit pl-[52px] md:pl-0"
                   onClick={(e) => { e.stopPropagation(); if (contact.account_id) onCompanyClick?.(contact.account_id); }}
                 >
                   <Building2 size={14} className="text-[#8b8b93] group-hover/company:text-indigo-400 shrink-0 transition-colors" />
                   <span className="text-[#e2e2e5] group-hover/company:text-indigo-400 text-sm truncate transition-colors hover:underline">{contact.account_name || 'Unknown'}</span>
                 </div>
 
-                <div className="col-span-3 flex flex-col justify-center space-y-1">
+                <div className="hidden md:flex md:col-span-3 flex-col justify-center space-y-1">
                   {contact.email && (
                     <div className="flex items-center gap-2 text-sm text-[#8b8b93] truncate hover:text-[#e2e2e5] transition-colors">
                       <Mail size={12} className="shrink-0" />
@@ -181,7 +181,7 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
                   )}
                 </div>
 
-                <div className="col-span-2 flex justify-center items-center">
+                <div className="hidden md:flex md:col-span-2 justify-center items-center">
                   {contact.role_category ? (
                     <div className={`px-2.5 py-1 ${badge.bg} ${badge.color} rounded-md text-[10px] uppercase font-bold tracking-wider border border-white/5`}>
                       {contact.role_category}
@@ -191,7 +191,7 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
                   )}
                 </div>
 
-                <div className="col-span-2 flex flex-col justify-center">
+                <div className="hidden md:flex md:col-span-2 flex-col justify-center">
                   <span className="text-xs text-[#8b8b93]">{dateStr}</span>
                   {contact.source && <span className="text-[10px] text-[#8b8b93] uppercase">{contact.source}</span>}
                 </div>

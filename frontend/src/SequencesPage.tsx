@@ -97,8 +97,8 @@ export default function SequencesPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8">
+      <div className="flex justify-between items-center mb-6 lg:mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Loops</h1>
           <p className="text-sm text-[#8b8b93]">Automated outreach loops for contacts and projects.</p>
@@ -115,7 +115,7 @@ export default function SequencesPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => !creating && setShowCreate(false)}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
               <h2 className="text-lg font-semibold text-white">Create Loop</h2>
               <button onClick={() => !creating && setShowCreate(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
@@ -205,9 +205,9 @@ export default function SequencesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sequence List */}
-        <div className={selectedId ? 'col-span-5' : 'col-span-12'}>
+        <div className={selectedId ? 'lg:col-span-5' : 'lg:col-span-12'}>
           {sequences.length === 0 ? (
             <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-12 text-center">
               <p className="text-[#8b8b93] mb-4">No loops yet. Create your first automated outreach loop.</p>
@@ -263,7 +263,7 @@ export default function SequencesPage() {
 
         {/* Sequence Detail */}
         {selectedId && (
-          <div className="col-span-7">
+          <div className="lg:col-span-7">
             {detailLoading ? (
               <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-12 flex items-center justify-center text-[#8b8b93]">
                 <Loader2 size={20} className="animate-spin mr-2" />

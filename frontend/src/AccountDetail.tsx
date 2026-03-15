@@ -110,9 +110,9 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden p-8">
+      <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden p-4 lg:p-8">
         
         {/* Breadcrumb */}
         <div className="flex shrink-0 items-center gap-2 text-sm text-[#8b8b93] mb-6">
@@ -222,7 +222,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
             {/* Overview Box */}
             <div className="bg-[#1a1a1c] border border-white/5 rounded-2xl p-6 mb-6">
               <h2 className="text-white font-semibold mb-4">Overview</h2>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs text-[#8b8b93] uppercase tracking-wider mb-1 font-semibold">Deal Stage</p>
@@ -673,7 +673,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                 <p className="text-sm">No contacts found for this account.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {contacts.map((c) => {
                   const initials = c.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                   return (
@@ -813,7 +813,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
       {/* Dedup Modal */}
       {showDedupModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowDedupModal(false)}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
               <h2 className="text-lg font-semibold text-white">Duplicate Signals</h2>
               <button onClick={() => setShowDedupModal(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
@@ -889,7 +889,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
       {/* Add Contact Modal */}
       {showAddContact && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowAddContact(false)}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-lg font-semibold text-white">Add Contact</h2>
               <button onClick={() => setShowAddContact(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
@@ -906,7 +906,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-[#8b8b93] block mb-1.5">Job Title</label>
                   <input
@@ -938,7 +938,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-[#8b8b93] block mb-1.5">Email</label>
                   <input
@@ -989,7 +989,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
       )}
 
       {/* Right Properties Sidebar */}
-      <div className="w-80 border-l border-[#202022] bg-[#141416] p-6 overflow-y-auto shrink-0">
+      <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-[#202022] bg-[#141416] p-4 lg:p-6 overflow-y-auto shrink-0">
         <div className="flex items-center justify-between mb-8">
           <h2 className="font-semibold text-white">Properties</h2>
           <ChevronRight size={16} className="text-[#8b8b93] cursor-pointer" />

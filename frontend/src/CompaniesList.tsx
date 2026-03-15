@@ -247,7 +247,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
     <div className="flex-1 flex flex-col h-full bg-[#141416] text-[#e2e2e5]">
 
       {/* Header Area */}
-      <div className="p-6 pb-2 border-b border-white/5">
+      <div className="p-4 md:p-6 pb-2 border-b border-white/5">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-8 h-8 rounded-md bg-[#202022] flex items-center justify-center pointer-events-none">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b8b93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
@@ -259,7 +259,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
         </div>
 
         {/* Toolbar */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-y-3">
           <div className="flex items-center relative">
             <button
               onClick={() => setShowScopeMenu(!showScopeMenu)}
@@ -289,15 +289,15 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+            <div className="relative w-full md:w-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b8b93]" />
               <input
                 type="text"
                 placeholder="Search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="bg-[#1a1a1c] border border-white/10 rounded-lg py-1.5 pl-9 pr-3 text-sm focus:outline-none focus:border-indigo-500 w-64 text-white hover:border-white/20 transition-colors placeholder-[#8b8b93]"
+                className="bg-[#1a1a1c] border border-white/10 rounded-lg py-1.5 pl-9 pr-3 text-sm focus:outline-none focus:border-indigo-500 w-full md:w-64 text-white hover:border-white/20 transition-colors placeholder-[#8b8b93]"
               />
             </div>
 
@@ -373,7 +373,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
         </div>
 
         {/* Tier filter chips */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Discovered chip with count badge */}
           <button
             onClick={() => setTierFilter(0)}
@@ -420,7 +420,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
+      <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
         <div className="col-span-3 flex items-center gap-2 cursor-pointer hover:text-[#e2e2e5]">
           <input
             type="checkbox"
@@ -460,9 +460,9 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
               <div
                 key={account.id}
                 onClick={() => onCompanyClick(account.id)}
-                className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group items-center"
+                className="flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-12 md:gap-4 md:px-6 md:py-4 border-b border-white/5 hover:bg-[#1a1a1c] cursor-pointer transition-colors group md:items-center"
               >
-                <div className="col-span-3 flex items-center gap-3">
+                <div className="md:col-span-3 flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(account.id)}
@@ -473,13 +473,13 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                   <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0`}>
                     {initial}
                   </div>
-                  <div className="overflow-hidden">
+                  <div className="overflow-hidden flex-1">
                     <h3 className="text-[#e2e2e5] font-medium text-sm truncate group-hover:text-indigo-400 transition-colors">{account.name}</h3>
                     <p className="text-xs text-[#8b8b93] truncate">{account.hq_city ? `${account.hq_city}${account.hq_state ? `, ${account.hq_state}` : ''}` : account.name_normalized}</p>
                   </div>
                 </div>
 
-                <div className="col-span-1 flex items-center relative">
+                <div className="md:col-span-1 flex items-center relative pl-11 md:pl-0">
                   {account.tier === 0 ? (
                     <div className="relative">
                       <button
@@ -515,18 +515,18 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
                   )}
                 </div>
 
-                <div className="col-span-3 flex flex-col justify-center">
+                <div className="hidden md:flex md:col-span-3 flex-col justify-center">
                   <span className="text-[#e2e2e5] font-medium text-sm">{account.deal_stage}</span>
                   <span className="text-xs text-[#8b8b93]">{dateStr}</span>
                 </div>
 
-                <div className="col-span-2 flex items-center pl-6">
+                <div className="md:col-span-2 flex items-center pl-11 md:pl-6">
                   <div className={`px-2.5 py-1 ${scoreDisplay.bg} ${scoreDisplay.color} rounded-full text-xs border border-white/5 flex items-center gap-1.5 inline-flex font-medium min-w-[70px]`}>
                      <span className="opacity-80">{scoreDisplay.icon}</span> {scoreDisplay.text}
                   </div>
                 </div>
 
-                <div className="col-span-3 flex justify-end h-8 items-end gap-[2px]">
+                <div className="hidden md:flex md:col-span-3 justify-end h-8 items-end gap-[2px]">
                   {generateBars().map((height, i) => (
                     <div key={i} className="w-1.5 bg-[#10b981] rounded-t-sm opacity-80" style={{ height: `${height}%` }}></div>
                   ))}
@@ -610,7 +610,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       {/* Add Company Modal */}
       {showAddCompany && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => { if (!addSaving) { setShowAddCompany(false); setDupWarning(null); } }}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-lg font-semibold text-white">Add Company</h2>
               <button onClick={() => { if (!addSaving) { setShowAddCompany(false); setDupWarning(null); } }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#202022] text-[#8b8b93] hover:text-white transition-colors">
@@ -722,7 +722,7 @@ export default function CompaniesList({ onCompanyClick, userProfile }: Companies
       {/* Import CSV Modal */}
       {showImport && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => !importing && setShowImport(false)}>
-          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#1a1a1c] border border-white/10 rounded-2xl w-full max-w-lg mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <h2 className="text-lg font-semibold text-white">Import Companies & Contacts</h2>
