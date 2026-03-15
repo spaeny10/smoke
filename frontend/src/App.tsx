@@ -22,7 +22,9 @@ import {
   MapPin,
   X,
   ArrowRight,
-  Menu
+  Menu,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import AccountDetail from './AccountDetail';
@@ -96,6 +98,7 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('month');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('smoke_sidebarCollapsed') === 'true');
 
   // Auth check on mount / token change
   useEffect(() => {
@@ -181,6 +184,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    localStorage.setItem('smoke_sidebarCollapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
     localStorage.setItem('smoke_activeTab', activeTab);
     if (selectedProjectId) {
       localStorage.setItem('smoke_selectedProjectId', selectedProjectId);
@@ -222,151 +229,156 @@ export default function App() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-[260px] border-r border-[#202022] flex flex-col py-6 px-4 bg-[#0a0a0b] shrink-0 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:relative lg:transform-none`}>
-        
+      <aside className={`fixed inset-y-0 left-0 z-40 border-r border-[#202022] flex flex-col py-6 bg-[#0a0a0b] shrink-0 transform transition-all duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:relative lg:transform-none ${sidebarCollapsed ? 'w-[68px] px-2' : 'w-[260px] px-4'}`}>
+
         {/* Logo and App Name */}
-        <div className="flex items-center justify-between mb-8 px-2">
-          <div className="flex items-center gap-3 cursor-pointer">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg tracking-tighter shadow-lg shadow-indigo-500/20">
+        <div className={`flex items-center mb-8 ${sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-2'}`}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => sidebarCollapsed && setSidebarCollapsed(false)}>
+            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg tracking-tighter shadow-lg shadow-indigo-500/20 shrink-0">
               S
             </div>
-            <span className="font-semibold text-white tracking-wide">Smoke</span>
+            {!sidebarCollapsed && <span className="font-semibold text-white tracking-wide">Smoke</span>}
           </div>
-          <div className="w-6 h-6 rounded bg-[#202022] flex items-center justify-center cursor-pointer hover:bg-[#2a2a2d] border border-white/5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b8b93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="8 15 12 19 16 15"></polyline><polyline points="16 9 12 5 8 9"></polyline></svg>
-          </div>
+          {!sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className="w-6 h-6 rounded bg-[#202022] flex items-center justify-center cursor-pointer hover:bg-[#2a2a2d] border border-white/5 text-[#8b8b93] hover:text-white transition-colors"
+              title="Collapse sidebar"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+          )}
         </div>
-        
+
+        {/* Expand button when collapsed */}
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="w-full flex items-center justify-center mb-4 py-1.5 rounded-lg text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white transition-colors"
+            title="Expand sidebar"
+          >
+            <ChevronsRight size={16} />
+          </button>
+        )}
+
         {/* Navigation Section 1 */}
         <div className="flex flex-col space-y-1 w-full mb-6">
           <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'dashboard' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors ${activeTab === 'dashboard' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => navigateTo('dashboard')}
+            title={sidebarCollapsed ? 'Dashboard' : undefined}
           >
-            <LayoutDashboard size={18} />
-            <span className="text-sm font-medium">Dashboard</span>
+            <LayoutDashboard size={18} className="shrink-0" />
+            {!sidebarCollapsed && <span className="text-sm font-medium">Dashboard</span>}
           </div>
 
           <div
-            className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors relative ${activeTab === 'odin' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-3 py-2.5'} rounded-lg cursor-pointer transition-colors relative ${activeTab === 'odin' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => navigateTo('odin')}
+            title={sidebarCollapsed ? 'SMOKE AI' : undefined}
           >
             {activeTab === 'odin' && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#3b82f6] rounded-r-md"></div>
             )}
-            <div className={`flex items-center gap-3 ${activeTab === 'odin' ? 'pl-1' : ''}`}>
-              <Layers size={18} className={activeTab === 'odin' ? 'text-[#3b82f6]' : ''} />
-              <span className="text-sm font-medium">SMOKE AI</span>
+            <div className={`flex items-center ${sidebarCollapsed ? '' : 'gap-3'} ${activeTab === 'odin' && !sidebarCollapsed ? 'pl-1' : ''}`}>
+              <Layers size={18} className={`shrink-0 ${activeTab === 'odin' ? 'text-[#3b82f6]' : ''}`} />
+              {!sidebarCollapsed && <span className="text-sm font-medium">SMOKE AI</span>}
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-
-          <div
-            className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('companies')}
-          >
-            <div className="flex items-center gap-3">
-              <Building2 size={18} />
-              <span className="text-sm font-medium">Companies</span>
-            </div>
-            {discoveredCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 min-w-[20px] text-center">
-                {discoveredCount}
-              </span>
+            {!sidebarCollapsed && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             )}
           </div>
 
           <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'contacts' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('contacts')}
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5 relative' : 'justify-between px-3 py-2.5'} rounded-lg cursor-pointer transition-colors ${activeTab === 'companies' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            onClick={() => navigateTo('companies')}
+            title={sidebarCollapsed ? 'Companies' : undefined}
           >
-            <Users size={18} />
-            <span className="text-sm font-medium">Contacts</span>
+            {sidebarCollapsed ? (
+              <>
+                <Building2 size={18} className="shrink-0" />
+                {discoveredCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full text-[8px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center">
+                    {discoveredCount}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <Building2 size={18} className="shrink-0" />
+                  <span className="text-sm font-medium">Companies</span>
+                </div>
+                {discoveredCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30 min-w-[20px] text-center">
+                    {discoveredCount}
+                  </span>
+                )}
+              </>
+            )}
           </div>
 
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'inbox' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('inbox')}
-          >
-            <Mail size={18} />
-            <span className="text-sm font-medium">Inbox</span>
-          </div>
-
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'attribution' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('attribution')}
-          >
-            <PieChartIcon size={18} />
-            <span className="text-sm font-medium">Attribution</span>
-          </div>
-
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'map' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('map')}
-          >
-            <MapPin size={18} />
-            <span className="text-sm font-medium">Map</span>
-          </div>
-
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'blueprints' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('blueprints')}
-          >
-            <Layers size={18} />
-            <span className="text-sm font-medium">Blueprints</span>
-          </div>
-
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'deals' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('deals')}
-          >
-            <DollarSign size={18} />
-            <span className="text-sm font-medium">Projects</span>
-          </div>
-
-          <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'sequences' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
-            onClick={() => navigateTo('sequences')}
-          >
-            <Repeat size={18} />
-            <span className="text-sm font-medium">Loops</span>
-          </div>
+          {[
+            { tab: 'contacts', icon: Users, label: 'Contacts' },
+            { tab: 'inbox', icon: Mail, label: 'Inbox' },
+            { tab: 'attribution', icon: PieChartIcon, label: 'Attribution' },
+            { tab: 'map', icon: MapPin, label: 'Map' },
+            { tab: 'blueprints', icon: Layers, label: 'Blueprints' },
+            { tab: 'deals', icon: DollarSign, label: 'Projects' },
+            { tab: 'sequences', icon: Repeat, label: 'Loops' },
+          ].map(({ tab, icon: Icon, label }) => (
+            <div
+              key={tab}
+              className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors ${activeTab === tab ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+              onClick={() => navigateTo(tab)}
+              title={sidebarCollapsed ? label : undefined}
+            >
+              <Icon size={18} className="shrink-0" />
+              {!sidebarCollapsed && <span className="text-sm font-medium">{label}</span>}
+            </div>
+          ))}
         </div>
 
         {/* Bottom Section */}
-        <div className="flex flex-col w-full mt-auto space-y-1 mb-6 border-b border-white/5 pb-6">
+        <div className={`flex flex-col w-full mt-auto space-y-1 mb-6 border-b border-white/5 pb-6`}>
           <div
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === 'settings' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors ${activeTab === 'settings' ? 'bg-[#202022] text-white' : 'text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white'}`}
             onClick={() => { navigateTo('settings'); setSelectedAccountId(null); setSelectedContactId(null); }}
+            title={sidebarCollapsed ? 'Settings' : undefined}
           >
-            <Settings size={18} />
-            <span className="text-sm font-medium">Settings</span>
+            <Settings size={18} className="shrink-0" />
+            {!sidebarCollapsed && <span className="text-sm font-medium">Settings</span>}
           </div>
           <div
             onClick={() => { handleLogout(); setSidebarOpen(false); }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'} rounded-lg cursor-pointer text-[#8b8b93] hover:bg-red-500/10 hover:text-red-400 transition-colors`}
+            title={sidebarCollapsed ? 'Sign out' : undefined}
           >
-            <LogOut size={18} />
-            <span className="text-sm font-medium">Sign out</span>
+            <LogOut size={18} className="shrink-0" />
+            {!sidebarCollapsed && <span className="text-sm font-medium">Sign out</span>}
           </div>
         </div>
-        
+
         {/* User Profile Footer */}
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-[#1a1a1c] cursor-pointer transition-colors w-full group">
-          <div className="w-10 h-10 rounded-full border border-white/10 group-hover:border-indigo-500/50 transition-colors flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: INITIALS_COLORS[(userProfile?.name?.length || 0) % INITIALS_COLORS.length] }}>
+        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-2'} py-2 rounded-xl hover:bg-[#1a1a1c] cursor-pointer transition-colors w-full group`}
+          title={sidebarCollapsed ? (userProfile?.name || 'User') : undefined}
+        >
+          <div className={`${sidebarCollapsed ? 'w-9 h-9 text-xs' : 'w-10 h-10 text-sm'} rounded-full border border-white/10 group-hover:border-indigo-500/50 transition-colors flex items-center justify-center text-white font-bold shrink-0`} style={{ backgroundColor: INITIALS_COLORS[(userProfile?.name?.length || 0) % INITIALS_COLORS.length] }}>
             {getInitials(userProfile?.name || 'U')}
           </div>
-          <div className="flex-1 overflow-hidden">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-white truncate">{userProfile?.name || 'Sales Rep'}</span>
-              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                userProfile?.role === 'director' ? 'bg-purple-500/15 text-purple-400' :
-                userProfile?.role === 'manager' ? 'bg-blue-500/15 text-blue-400' :
-                'bg-green-500/15 text-green-400'
-              }`}>{userProfile?.role || 'rep'}</span>
+          {!sidebarCollapsed && (
+            <div className="flex-1 overflow-hidden">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium text-white truncate">{userProfile?.name || 'Sales Rep'}</span>
+                <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  userProfile?.role === 'director' ? 'bg-purple-500/15 text-purple-400' :
+                  userProfile?.role === 'manager' ? 'bg-blue-500/15 text-blue-400' :
+                  'bg-green-500/15 text-green-400'
+                }`}>{userProfile?.role || 'rep'}</span>
+              </div>
+              <span className="text-xs text-[#8b8b93] truncate block">{userProfile?.email || 'rep@smoke.io'}</span>
             </div>
-            <span className="text-xs text-[#8b8b93] truncate block">{userProfile?.email || 'rep@smoke.io'}</span>
-          </div>
+          )}
         </div>
       </aside>
 
