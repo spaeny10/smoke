@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot,
   Loader2, Check, XCircle, MapPin, Calendar, TrendingUp, ArrowLeft, User, Star,
-  Target, Plus, ChevronDown, Copy, Phone, Mail, LayoutList, Rows3, Table2
+  Target, Plus, ChevronDown, Copy, Phone, Mail, LayoutList, Rows3, Table2,
+  Shield, Flame, BarChart3, Leaf
 } from 'lucide-react';
 import {
   signalsApi, aiApi, accountsApi, contactsApi, projectsApi, activitiesApi, outreachApi,
@@ -14,7 +15,41 @@ function getSignalType(source: string): string {
   if (s.includes('osha')) return 'osha';
   if (s.includes('permit')) return 'permit';
   if (s.includes('procore')) return 'procore';
+  if (s.includes('sam')) return 'sam';
+  if (s.includes('fema')) return 'fema';
+  if (s.includes('sec')) return 'sec';
+  if (s.includes('epa')) return 'epa';
+  if (s.includes('usaspending')) return 'contract';
   return 'news';
+}
+
+const SOURCE_COLORS: Record<string, { text: string; bg: string }> = {
+  osha: { text: 'text-red-400', bg: 'bg-red-500/10 text-red-500' },
+  permit: { text: 'text-blue-400', bg: 'bg-blue-500/10 text-blue-500' },
+  procore: { text: 'text-orange-400', bg: 'bg-orange-500/10 text-orange-500' },
+  sam: { text: 'text-purple-400', bg: 'bg-purple-500/10 text-purple-500' },
+  fema: { text: 'text-amber-400', bg: 'bg-amber-500/10 text-amber-500' },
+  sec: { text: 'text-cyan-400', bg: 'bg-cyan-500/10 text-cyan-500' },
+  epa: { text: 'text-emerald-400', bg: 'bg-emerald-500/10 text-emerald-500' },
+  contract: { text: 'text-indigo-400', bg: 'bg-indigo-500/10 text-indigo-500' },
+  news: { text: 'text-green-400', bg: 'bg-green-500/10 text-green-500' },
+};
+
+function sourceTextColor(type: string): string { return SOURCE_COLORS[type]?.text ?? 'text-green-400'; }
+function sourceBgColor(type: string): string { return SOURCE_COLORS[type]?.bg ?? 'bg-green-500/10 text-green-500'; }
+
+function SourceIcon({ type, size = 14 }: { type: string; size?: number }) {
+  switch (type) {
+    case 'osha': return <AlertCircle size={size} />;
+    case 'permit': return <FileText size={size} />;
+    case 'procore': return <Building2 size={size} />;
+    case 'sam': return <Shield size={size} />;
+    case 'fema': return <Flame size={size} />;
+    case 'sec': return <BarChart3 size={size} />;
+    case 'epa': return <Leaf size={size} />;
+    case 'contract': return <FileText size={size} />;
+    default: return <MessageSquare size={size} />;
+  }
 }
 
 function timeAgo(dateStr: string): string {
@@ -370,12 +405,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                       }`}
                     >
                       <td className="py-2 px-4">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          getSignalType(signal.source) === 'osha' ? 'text-red-400' :
-                          getSignalType(signal.source) === 'permit' ? 'text-blue-400' :
-                          getSignalType(signal.source) === 'procore' ? 'text-orange-400' :
-                          'text-green-400'
-                        }`}>{signal.source}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${sourceTextColor(getSignalType(signal.source))}`}>{signal.source}</span>
                       </td>
                       <td className="py-2 px-2">
                         <span
@@ -425,16 +455,8 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                   }`}
                 >
                   {/* Source icon */}
-                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                    type === 'osha' ? 'bg-red-500/10 text-red-500' :
-                    type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
-                    type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
-                    'bg-green-500/10 text-green-500'
-                  }`}>
-                    {type === 'osha' ? <AlertCircle size={14} /> :
-                     type === 'permit' ? <FileText size={14} /> :
-                     type === 'procore' ? <Building2 size={14} /> :
-                     <MessageSquare size={14} />}
+                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${sourceBgColor(type)}`}>
+                    <SourceIcon type={type} size={14} />
                   </div>
 
                   {/* Main info */}
@@ -523,16 +545,8 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                   {/* Header: source badge + company + heat + date */}
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        type === 'osha' ? 'bg-red-500/10 text-red-500' :
-                        type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
-                        type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
-                        'bg-green-500/10 text-green-500'
-                      }`}>
-                        {type === 'osha' ? <AlertCircle size={16} /> :
-                         type === 'permit' ? <FileText size={16} /> :
-                         type === 'procore' ? <Building2 size={16} /> :
-                         <MessageSquare size={16} />}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${sourceBgColor(type)}`}>
+                        <SourceIcon type={type} size={16} />
                       </div>
                       <div className="min-w-0">
                         <span className="text-[10px] font-semibold text-[#8b8b93] tracking-wider uppercase">{signal.source}</span>
@@ -628,12 +642,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                      getSignalType(selectedSignal.source) === 'osha' ? 'text-red-400' :
-                      getSignalType(selectedSignal.source) === 'permit' ? 'text-blue-400' :
-                      getSignalType(selectedSignal.source) === 'procore' ? 'text-orange-400' :
-                      'text-green-400'
-                    }`}>{selectedSignal.source}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${sourceTextColor(getSignalType(selectedSignal.source))}`}>{selectedSignal.source}</span>
                     {selectedSignal.account_name && (
                       <span
                         className="text-sm text-indigo-400 font-semibold hover:underline cursor-pointer truncate"
@@ -1085,16 +1094,8 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                              type === 'osha' ? 'bg-red-500/10 text-red-500' :
-                              type === 'permit' ? 'bg-blue-500/10 text-blue-500' :
-                              type === 'procore' ? 'bg-orange-500/10 text-orange-500' :
-                              'bg-green-500/10 text-green-500'
-                            }`}>
-                              {type === 'osha' ? <AlertCircle size={12} /> :
-                               type === 'permit' ? <FileText size={12} /> :
-                               type === 'procore' ? <Building2 size={12} /> :
-                               <MessageSquare size={12} />}
+                            <div className={`w-5 h-5 rounded flex items-center justify-center ${sourceBgColor(type)}`}>
+                              <SourceIcon type={type} size={12} />
                             </div>
                             <span className="text-xs font-semibold text-[#8b8b93] uppercase">{sig.source}</span>
                             {sig.account_name && <span className="text-xs text-indigo-400">{sig.account_name}</span>}

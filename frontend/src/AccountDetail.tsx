@@ -429,10 +429,9 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                 const isPromoted = promotedSignalIds.has(sig.id);
                 const isPromoting = promotingSignalId === sig.id;
                 const src = sig.source.toLowerCase();
-                const isOsha = src.includes('osha');
-                const isProcore = src.includes('procore');
-                const isPermit = src.includes('permit');
-                const iconColor = isOsha ? 'text-red-400 bg-red-500/10' : isProcore ? 'text-orange-400 bg-orange-500/10' : isPermit ? 'text-blue-400 bg-blue-500/10' : 'text-green-400 bg-green-500/10';
+                const srcType = src.includes('osha') ? 'osha' : src.includes('permit') ? 'permit' : src.includes('procore') ? 'procore' : src.includes('sam') ? 'sam' : src.includes('fema') ? 'fema' : src.includes('sec') ? 'sec' : src.includes('epa') ? 'epa' : src.includes('usaspending') ? 'contract' : 'news';
+                const srcColors: Record<string, string> = { osha: 'text-red-400 bg-red-500/10', permit: 'text-blue-400 bg-blue-500/10', procore: 'text-orange-400 bg-orange-500/10', sam: 'text-purple-400 bg-purple-500/10', fema: 'text-amber-400 bg-amber-500/10', sec: 'text-cyan-400 bg-cyan-500/10', epa: 'text-emerald-400 bg-emerald-500/10', contract: 'text-indigo-400 bg-indigo-500/10', news: 'text-green-400 bg-green-500/10' };
+                const iconColor = srcColors[srcType] || 'text-green-400 bg-green-500/10';
                 const borderColor = sig.heat === 'hot' ? 'border-red-500/20 hover:border-red-500/40' : sig.heat === 'warm' ? 'border-orange-500/20 hover:border-orange-500/40' : 'border-white/5 hover:border-white/10';
                 const icon = isOsha ? <AlertCircle size={20} /> : isProcore ? <Target size={20} /> : isPermit ? <FileText size={20} /> : <ExternalLink size={20} />;
                 return (

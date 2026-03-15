@@ -18,6 +18,10 @@ const SOURCES = [
   { value: 'news', label: 'News' },
   { value: 'osha', label: 'OSHA' },
   { value: 'procore', label: 'Procore' },
+  { value: 'sam', label: 'SAM.gov' },
+  { value: 'fema', label: 'FEMA' },
+  { value: 'sec', label: 'SEC EDGAR' },
+  { value: 'epa', label: 'EPA' },
 ];
 
 const SEGMENTS = ['Commercial', 'Multifamily', 'Mixed'];
