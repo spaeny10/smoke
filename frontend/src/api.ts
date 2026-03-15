@@ -311,6 +311,8 @@ export const signalGatesApi = {
     api.put<SignalGate>(`/api/signal-gates/${id}`, data),
   delete: (id: string) =>
     api.delete(`/api/signal-gates/${id}`),
+  enforce: () =>
+    api.post<{ removed: number; message: string }>('/api/signal-gates/enforce'),
 };
 
 // ── Pipelines ───────────────────────────────────────────

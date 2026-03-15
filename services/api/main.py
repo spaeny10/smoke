@@ -14,6 +14,19 @@ from services.api.auth import require_auth
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+
+    # Enforce signal gates on startup — clean up any signals that pre-date gate rules
+    try:
+        from packages.db.session import async_session
+        from packages.matching.signal_gates import enforce_signal_gates
+        async with async_session() as db:
+            removed = await enforce_signal_gates(db)
+            if removed:
+                import logging
+                logging.getLogger(__name__).info(f"Startup gate enforcement removed {removed} signals")
+    except Exception:
+        pass
+
     yield
 
 app = FastAPI(title="Construction GTM API", lifespan=lifespan)
