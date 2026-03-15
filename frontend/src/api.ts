@@ -456,8 +456,8 @@ export interface PipelineSummary {
 export const reportsApi = {
   signalsBySource: () =>
     api.get<SignalsBySource[]>('/api/reports/signals-by-source'),
-  signalsByState: () =>
-    api.get<SignalsByState[]>('/api/reports/signals-by-state'),
+  signalsByState: (params?: { view?: string }) =>
+    api.get<SignalsByState[]>('/api/reports/signals-by-state', { params }),
   signalsOverTime: (days?: number) =>
     api.get<SignalsOverTime[]>('/api/reports/signals-over-time', { params: { days } }),
   pipelineSummary: () =>

@@ -1,11 +1,13 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timezone, timedelta
 
 from packages.db.session import get_db
-from packages.db.models import Signal, Account
-from services.api.auth import require_auth
+from packages.db.models import Signal, Account, User
+from services.api.auth import require_auth, get_current_user, get_visible_account_ids
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -25,13 +27,28 @@ async def signals_by_source(
 
 @router.get("/signals-by-state")
 async def signals_by_state(
-    user=Depends(require_auth),
+    view: str = Query("all"),
+    current_user: Optional[User] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
+    query = (
         select(Signal.location_state, func.count(Signal.id).label("count"))
         .where(Signal.location_state.isnot(None))
-        .group_by(Signal.location_state)
+    )
+
+    # Apply same visibility scoping as signals list
+    if current_user:
+        if current_user.role == 'rep' and view not in ('mine',):
+            view = 'mine'
+        elif current_user.role == 'manager' and view not in ('mine', 'team'):
+            view = 'team'
+
+        visible_ids = await get_visible_account_ids(current_user, view, db)
+        if visible_ids is not None:
+            query = query.where(Signal.account_id.in_(visible_ids))
+
+    result = await db.execute(
+        query.group_by(Signal.location_state)
         .order_by(func.count(Signal.id).desc())
     )
     return [{"state": row[0], "count": row[1]} for row in result.all()]

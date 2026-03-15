@@ -75,7 +75,7 @@ export default function MapView() {
   const [hoveredState, setHoveredState] = useState<string | null>(null);
 
   useEffect(() => {
-    reportsApi.signalsByState()
+    reportsApi.signalsByState({ view: 'all' })
       .then(res => setByState(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -88,7 +88,7 @@ export default function MapView() {
   const handleStateClick = (abbr: string) => {
     setSelectedState(abbr);
     setSigLoading(true);
-    signalsApi.list({ location_state: abbr, offset: 0, limit: 50 })
+    signalsApi.list({ location_state: abbr, view: 'all', offset: 0, limit: 50 })
       .then(res => {
         setStateSignals(res.data.items);
       })
