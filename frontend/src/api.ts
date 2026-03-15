@@ -325,6 +325,11 @@ export interface PipelineScanStatus {
     contracts: number;
     news: number;
     osha: number;
+    jobtitles: number;
+    sam: number;
+    fema: number;
+    sec: number;
+    epa: number;
     total_new: number;
   } | null;
   error: string | null;

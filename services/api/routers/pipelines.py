@@ -60,42 +60,60 @@ async def _run_pipelines():
         from services.pipeline_contracts.main import fetch_contract_data
         from services.pipeline_news.main import fetch_news_data
         from services.pipeline_osha.main import fetch_osha_data
+        from services.pipeline_jobtitles.main import fetch_jobtitle_data
+        from services.pipeline_sam.main import fetch_sam_data
+        from services.pipeline_fema.main import fetch_fema_data
+        from services.pipeline_sec.main import fetch_sec_data
+        from services.pipeline_epa.main import fetch_epa_data
 
         results = {}
 
         # Count signals before each pipeline to measure new ones
         from packages.db.session import async_session
 
-        async with async_session() as db:
-            before = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        async def _count() -> int:
+            async with async_session() as db:
+                return (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+
+        before = await _count()
 
         await fetch_permit_data()
-        async with async_session() as db:
-            after_permits = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        after_permits = await _count()
         results["permits"] = after_permits - before
 
         await fetch_contract_data()
-        async with async_session() as db:
-            after_contracts = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        after_contracts = await _count()
         results["contracts"] = after_contracts - after_permits
 
         await fetch_news_data()
-        async with async_session() as db:
-            after_news = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        after_news = await _count()
         results["news"] = after_news - after_contracts
 
         await fetch_osha_data()
-        async with async_session() as db:
-            after_osha = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        after_osha = await _count()
         results["osha"] = after_osha - after_news
 
-        from services.pipeline_jobtitles.main import fetch_jobtitle_data
         await fetch_jobtitle_data()
-        async with async_session() as db:
-            after_jobtitles = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        after_jobtitles = await _count()
         results["jobtitles"] = after_jobtitles - after_osha
 
-        results["total_new"] = after_jobtitles - before
+        await fetch_sam_data()
+        after_sam = await _count()
+        results["sam"] = after_sam - after_jobtitles
+
+        await fetch_fema_data()
+        after_fema = await _count()
+        results["fema"] = after_fema - after_sam
+
+        await fetch_sec_data()
+        after_sec = await _count()
+        results["sec"] = after_sec - after_fema
+
+        await fetch_epa_data()
+        after_epa = await _count()
+        results["epa"] = after_epa - after_sec
+
+        results["total_new"] = after_epa - before
 
         _scan_state["last_result"] = results
         _scan_state["last_run"] = datetime.now(timezone.utc).isoformat()
