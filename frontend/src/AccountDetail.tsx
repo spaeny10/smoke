@@ -433,7 +433,8 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                 const srcColors: Record<string, string> = { osha: 'text-red-400 bg-red-500/10', permit: 'text-blue-400 bg-blue-500/10', procore: 'text-orange-400 bg-orange-500/10', sam: 'text-purple-400 bg-purple-500/10', fema: 'text-amber-400 bg-amber-500/10', sec: 'text-cyan-400 bg-cyan-500/10', epa: 'text-emerald-400 bg-emerald-500/10', contract: 'text-indigo-400 bg-indigo-500/10', news: 'text-green-400 bg-green-500/10' };
                 const iconColor = srcColors[srcType] || 'text-green-400 bg-green-500/10';
                 const borderColor = sig.heat === 'hot' ? 'border-red-500/20 hover:border-red-500/40' : sig.heat === 'warm' ? 'border-orange-500/20 hover:border-orange-500/40' : 'border-white/5 hover:border-white/10';
-                const icon = isOsha ? <AlertCircle size={20} /> : isProcore ? <Target size={20} /> : isPermit ? <FileText size={20} /> : <ExternalLink size={20} />;
+                const srcIcons: Record<string, React.ReactNode> = { osha: <AlertCircle size={20} />, permit: <FileText size={20} />, procore: <Target size={20} />, sam: <ExternalLink size={20} />, fema: <AlertCircle size={20} />, sec: <FileText size={20} />, epa: <ExternalLink size={20} /> };
+                const icon = srcIcons[srcType] || <ExternalLink size={20} />;
                 return (
                   <div key={sig.id} className={`bg-[#202022] border ${borderColor} rounded-xl p-5 flex gap-4 transition-colors`}>
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconColor}`}>
@@ -442,7 +443,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <span className={`text-xs font-bold uppercase tracking-wider block mb-1 ${isOsha ? 'text-red-400' : isProcore ? 'text-orange-400' : isPermit ? 'text-blue-400' : 'text-green-400'}`}>{sig.source}</span>
+                          <span className={`text-xs font-bold uppercase tracking-wider block mb-1 ${(srcColors[srcType] || 'text-green-400').split(' ')[0]}`}>{sig.source}</span>
                           <h3 className="text-white font-medium text-base">{sig.title}</h3>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
