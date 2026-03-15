@@ -19,6 +19,7 @@ async def list_signals(
     source: str = Query(None),
     heat: str = Query(None),
     status: str = Query(None),
+    location_state: str = Query(None),
     tier: int = Query(None),
     view: str = Query("mine"),
     offset: int = Query(0, ge=0),
@@ -53,6 +54,9 @@ async def list_signals(
     if status:
         query = query.where(Signal.status == status)
         count_query = count_query.where(Signal.status == status)
+    if location_state:
+        query = query.where(Signal.location_state == location_state)
+        count_query = count_query.where(Signal.location_state == location_state)
     has_account_join = False
     if tier is not None:
         # Join to Account to filter by tier

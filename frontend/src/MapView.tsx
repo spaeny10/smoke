@@ -88,10 +88,9 @@ export default function MapView() {
   const handleStateClick = (abbr: string) => {
     setSelectedState(abbr);
     setSigLoading(true);
-    signalsApi.list({ offset: 0, limit: 20 })
+    signalsApi.list({ location_state: abbr, offset: 0, limit: 50 })
       .then(res => {
-        // Filter client-side by state since signals API may not have state filter
-        setStateSignals(res.data.items.filter(s => s.location_state === abbr));
+        setStateSignals(res.data.items);
       })
       .catch(() => setStateSignals([]))
       .finally(() => setSigLoading(false));

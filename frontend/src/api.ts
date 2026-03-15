@@ -212,7 +212,7 @@ export const projectsApi = {
 };
 
 export const signalsApi = {
-  list: (params?: { account_id?: string; source?: string; heat?: string; status?: string; tier?: number; view?: string; offset?: number; limit?: number }) =>
+  list: (params?: { account_id?: string; source?: string; heat?: string; status?: string; location_state?: string; tier?: number; view?: string; offset?: number; limit?: number }) =>
     api.get<PaginatedResponse<Signal>>('/api/signals', { params }),
   get: (id: string) =>
     api.get<Signal>(`/api/signals/${id}`),
