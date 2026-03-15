@@ -179,6 +179,8 @@ export const accountsApi = {
     api.get<Project[]>(`/api/accounts/${id}/projects`),
   discoverContacts: (id: string) =>
     api.post<{ status: string; message: string }>(`/api/accounts/${id}/discover-contacts`),
+  merge: (keepId: string, mergeId: string) =>
+    api.post<{ status: string; kept: Account; contacts_moved: number; signals_moved: number; projects_moved: number }>(`/api/accounts/merge?keep_id=${keepId}&merge_id=${mergeId}`),
 };
 
 export const contactsApi = {
@@ -218,9 +220,18 @@ export const signalsApi = {
     api.patch<Signal>(`/api/signals/${id}/status`, { status }),
 };
 
+export interface MetricTrends {
+  accounts: number[];
+  signals: number[];
+  contacts: number[];
+  outreach: number[];
+}
+
 export const metricsApi = {
   get: () =>
     api.get<{ activeAccounts: number; newSignals: number; highPriorityContacts: number; outreachSent: number }>('/api/metrics'),
+  trends: () =>
+    api.get<MetricTrends>('/api/metrics/trends'),
 };
 
 export const outreachApi = {
@@ -507,6 +518,27 @@ export const sequencesApi = {
     api.get<SequenceEnrollment[]>(`/api/sequences/${sequenceId}/enrollments`),
   updateEnrollment: (enrollmentId: string, data: { status?: string }) =>
     api.patch<SequenceEnrollment>(`/api/sequences/enrollments/${enrollmentId}`, data),
+};
+
+// ── Global Search ───────────────────────────────────────
+
+export interface GlobalSearchResult {
+  accounts: { id: string; name: string; tier: number; deal_stage: string }[];
+  contacts: { id: string; name: string; email: string | null; account_id: string }[];
+  signals: { id: string; title: string; source: string; account_id: string }[];
+}
+
+export const searchApi = {
+  search: (q: string) =>
+    api.get<GlobalSearchResult>('/api/search', { params: { q } }),
+};
+
+// ── Export ───────────────────────────────────────────────
+
+export const exportApi = {
+  accounts: () => `${API_BASE}/api/export/accounts`,
+  contacts: () => `${API_BASE}/api/export/contacts`,
+  signals: () => `${API_BASE}/api/export/signals`,
 };
 
 export default api;

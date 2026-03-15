@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 
 from packages.db.session import get_db
-from packages.db.models import Account, Contact, Signal, Project, User
+from packages.db.models import Account, Contact, Signal, Project, User, Activity
 from packages.matching.utils import normalize_company_name, check_duplicate_account
 from services.api.schemas import (
     AccountCreate, AccountUpdate, AccountRead,
@@ -478,3 +478,63 @@ async def get_account_projects(account_id: str, db: AsyncSession = Depends(get_d
         read.account_name = account.name
         items.append(read)
     return items
+
+
+# ── Account Merge ─────────────────────────────────────────
+
+@router.post("/merge")
+async def merge_accounts(
+    keep_id: str = Query(...),
+    merge_id: str = Query(...),
+    user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Merge merge_id into keep_id: move all child records, then delete the source."""
+    if keep_id == merge_id:
+        raise HTTPException(status_code=400, detail="Cannot merge an account into itself")
+
+    keep = await db.scalar(select(Account).where(Account.id == keep_id))
+    merge = await db.scalar(select(Account).where(Account.id == merge_id))
+    if not keep or not merge:
+        raise HTTPException(status_code=404, detail="One or both accounts not found")
+
+    # Re-parent contacts
+    contacts = (await db.execute(select(Contact).where(Contact.account_id == merge_id))).scalars().all()
+    for c in contacts:
+        c.account_id = keep_id
+
+    # Re-parent signals
+    signals = (await db.execute(select(Signal).where(Signal.account_id == merge_id))).scalars().all()
+    for s in signals:
+        s.account_id = keep_id
+
+    # Re-parent projects
+    projects = (await db.execute(select(Project).where(Project.account_id == merge_id))).scalars().all()
+    for p in projects:
+        p.account_id = keep_id
+
+    # Re-parent activities
+    activities = (await db.execute(select(Activity).where(Activity.account_id == merge_id))).scalars().all()
+    for a in activities:
+        a.account_id = keep_id
+
+    # Take the better composite score
+    if merge.composite_score > keep.composite_score:
+        keep.composite_score = merge.composite_score
+
+    # Fill in missing fields from the merged account
+    for field in ('hq_address', 'hq_city', 'hq_state', 'hq_zip', 'website', 'region', 'segment', 'employee_count'):
+        if not getattr(keep, field) and getattr(merge, field):
+            setattr(keep, field, getattr(merge, field))
+
+    await db.delete(merge)
+    await db.commit()
+    await db.refresh(keep)
+
+    return {
+        "status": "merged",
+        "kept": AccountRead.model_validate(keep),
+        "contacts_moved": len(contacts),
+        "signals_moved": len(signals),
+        "projects_moved": len(projects),
+    }

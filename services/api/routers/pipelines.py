@@ -24,6 +24,31 @@ _scan_state = {
 }
 
 
+async def _auto_dedup_signals() -> int:
+    """Remove duplicate signals (same source + title per account). Returns count removed."""
+    from packages.db.session import async_session as _async_session
+    async with _async_session() as db:
+        result = await db.execute(
+            select(Signal.account_id, Signal.source, Signal.title, func.count(Signal.id).label("cnt"))
+            .group_by(Signal.account_id, Signal.source, Signal.title)
+            .having(func.count(Signal.id) > 1)
+        )
+        dup_groups = result.all()
+        removed = 0
+        for row in dup_groups:
+            dupes = (await db.execute(
+                select(Signal)
+                .where(Signal.account_id == row[0], Signal.source == row[1], Signal.title == row[2])
+                .order_by(Signal.detected_at.desc())
+            )).scalars().all()
+            # Keep the newest, delete the rest
+            for dup in dupes[1:]:
+                await db.delete(dup)
+                removed += 1
+        await db.commit()
+    return removed
+
+
 async def _run_pipelines():
     """Run all signal pipelines and update scan state."""
     global _scan_state
@@ -75,6 +100,15 @@ async def _run_pipelines():
         _scan_state["last_result"] = results
         _scan_state["last_run"] = datetime.now(timezone.utc).isoformat()
         logger.info(f"Pipeline scan complete: {results}")
+
+        # Auto-dedup signals after pipeline scan
+        if results["total_new"] > 0:
+            try:
+                deduped = await _auto_dedup_signals()
+                results["auto_deduped"] = deduped
+                logger.info(f"Auto-dedup removed {deduped} duplicate signals")
+            except Exception as dedup_err:
+                logger.warning(f"Auto-dedup failed: {dedup_err}")
 
     except Exception as e:
         _scan_state["error"] = str(e)

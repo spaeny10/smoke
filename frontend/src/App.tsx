@@ -10,8 +10,6 @@ import {
   BookOpen, 
   Search, 
   Bell, 
-  Calendar, 
-  ChevronDown, 
   Paperclip, 
   Send,
   Repeat,
@@ -21,7 +19,9 @@ import {
   Mail,
   Check,
   LogOut,
-  MapPin
+  MapPin,
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import AccountDetail from './AccountDetail';
@@ -38,35 +38,28 @@ import LoginPage from './LoginPage';
 import SettingsPage from './SettingsPage';
 import MapView from './MapView';
 import SequencesPage from './SequencesPage';
-import { metricsApi, outreachApi, authApi, accountsApi, notificationsApi, type UserProfile, type PriorityQueueItem, type AppNotification } from './api';
+import { metricsApi, reportsApi, outreachApi, authApi, accountsApi, notificationsApi, aiApi, searchApi, type UserProfile, type PriorityQueueItem, type AppNotification, type GlobalSearchResult } from './api';
 
-const chartData1 = [
-  { name: '0', uv: 10 }, { name: '100', uv: 25 }, { name: '200', uv: 40 }, 
-  { name: '300', uv: 55 }, { name: '400', uv: 80 }, { name: '500', uv: 124 }
-];
+const PIE_COLORS = ['#10b981', '#ec4899', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#06b6d4'];
 
-const chartData2 = [
-  { name: '0', uv: 5 }, { name: '100', uv: 15 }, { name: '200', uv: 10 }, 
-  { name: '300', uv: 45 }, { name: '400', uv: 30 }, { name: '500', uv: 86 }
-];
+function toChartData(values: number[]) {
+  return values.map((v, i) => ({ name: `W${i + 1}`, uv: v }));
+}
 
-const chartData3 = [
-  { name: '0', uv: 2 }, { name: '1M', uv: 10 }, { name: '3M', uv: 15 }, 
-  { name: '5M', uv: 35 }, { name: '7M', uv: 25 }, { name: '9M', uv: 52 }
-];
+function pctChange(values: number[]): string {
+  if (values.length < 2) return '+0%';
+  const prev = values[values.length - 2] || 1;
+  const curr = values[values.length - 1];
+  const pct = ((curr - prev) / (prev || 1)) * 100;
+  const sign = pct >= 0 ? '+' : '';
+  return `${sign}${pct.toFixed(1)}%`;
+}
 
-const chartData4 = [
-  { name: '0', uv: 100 }, { name: '10', uv: 250 }, { name: '20', uv: 180 }, 
-  { name: '30', uv: 420 }, { name: '40', uv: 350 }, { name: '50', uv: 610 }
-];
+function getInitials(name: string): string {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
 
-const pieData = [
-  { name: 'OSHA Inspections', value: 45.1, color: '#10b981' },
-  { name: 'Procore API', value: 30.2, color: '#ec4899' },
-  { name: 'Bldg Permits', value: 12.2, color: '#f59e0b' },
-  { name: 'BuildingConnected', value: 8.4, color: '#ef4444' },
-  { name: 'CraneWatch', value: 4.1, color: '#3b82f6' }
-];
+const INITIALS_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#3b82f6'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('smoke_activeTab') || 'dashboard');
@@ -87,11 +80,20 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [metrics, setMetrics] = useState({
-    activeAccounts: 124,
-    newSignals: 86,
-    highPriorityContacts: 52,
-    outreachSent: 610
+    activeAccounts: 0,
+    newSignals: 0,
+    highPriorityContacts: 0,
+    outreachSent: 0
   });
+  const [trends, setTrends] = useState<{ accounts: number[]; signals: number[]; contacts: number[]; outreach: number[] }>({
+    accounts: [], signals: [], contacts: [], outreach: []
+  });
+  const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('month');
 
   // Auth check on mount / token change
   useEffect(() => {
@@ -123,6 +125,19 @@ export default function App() {
         }
       })
       .catch(err => console.error("Error fetching metrics:", err));
+    metricsApi.trends()
+      .then(res => setTrends(res.data))
+      .catch(() => {});
+    reportsApi.signalsBySource()
+      .then(res => {
+        const total = res.data.reduce((s, r) => s + r.count, 0) || 1;
+        setPieData(res.data.map((r, i) => ({
+          name: r.source,
+          value: Math.round((r.count / total) * 1000) / 10,
+          color: PIE_COLORS[i % PIE_COLORS.length],
+        })));
+      })
+      .catch(() => {});
     accountsApi.discoveredCount()
       .then(res => setDiscoveredCount(res.data.count))
       .catch(() => {});
@@ -304,10 +319,6 @@ export default function App() {
             <Settings size={18} />
             <span className="text-sm font-medium">Settings</span>
           </div>
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-[#1a1a1c] hover:text-white transition-colors">
-            <BookOpen size={18} />
-            <span className="text-sm font-medium">Guides</span>
-          </div>
           <div
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-[#8b8b93] hover:bg-red-500/10 hover:text-red-400 transition-colors"
@@ -319,7 +330,9 @@ export default function App() {
         
         {/* User Profile Footer */}
         <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-[#1a1a1c] cursor-pointer transition-colors w-full group">
-          <img src="https://i.pravatar.cc/150?u=a042581f4e30026704d" alt="User" className="w-10 h-10 rounded-full border border-white/10 group-hover:border-indigo-500/50 transition-colors" />
+          <div className="w-10 h-10 rounded-full border border-white/10 group-hover:border-indigo-500/50 transition-colors flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: INITIALS_COLORS[(userProfile?.name?.length || 0) % INITIALS_COLORS.length] }}>
+            {getInitials(userProfile?.name || 'U')}
+          </div>
           <div className="flex-1 overflow-hidden">
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium text-white truncate">{userProfile?.name || 'Sales Rep'}</span>
@@ -375,7 +388,9 @@ export default function App() {
         <header className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div className="relative group cursor-pointer">
-               <img src="https://i.pravatar.cc/150?u=a042581f4e30026704d" alt="Profile" className="w-12 h-12 rounded-full ring-2 ring-[#202022] group-hover:ring-indigo-500 transition-all" />
+               <div className="w-12 h-12 rounded-full ring-2 ring-[#202022] group-hover:ring-indigo-500 transition-all flex items-center justify-center text-white font-bold text-lg" style={{ backgroundColor: INITIALS_COLORS[(userProfile?.name?.length || 0) % INITIALS_COLORS.length] }}>
+                 {getInitials(userProfile?.name || 'U')}
+               </div>
                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#202022] rounded-full flex items-center justify-center border-2 border-[#141416]">
                   <Settings size={10} className="text-[#8b8b93]" />
                </div>
@@ -403,7 +418,10 @@ export default function App() {
                 <Users size={14} /> Team View
               </button>
             </div>
-            <button className="w-10 h-10 rounded-xl bg-[#202022] hover:bg-[#2a2a2d] transition-colors flex items-center justify-center text-[#8b8b93] border border-white/5">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="w-10 h-10 rounded-xl bg-[#202022] hover:bg-[#2a2a2d] transition-colors flex items-center justify-center text-[#8b8b93] border border-white/5"
+            >
               <Search size={18} />
             </button>
             <div className="relative">
@@ -492,10 +510,16 @@ export default function App() {
               )}
             </div>
             
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#202022] border border-white/5 text-sm cursor-pointer hover:bg-[#2a2a2d] transition-colors">
-              <Calendar size={16} className="text-[#8b8b93]" />
-              <span>This month</span>
-              <ChevronDown size={14} className="text-[#8b8b93] ml-2" />
+            <div className="flex bg-[#202022] p-1 rounded-xl border border-white/5">
+              {(['week', 'month', 'quarter'] as const).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setDateRange(r)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${dateRange === r ? 'bg-[#2a2a2d] text-white' : 'text-[#8b8b93] hover:text-white'}`}
+                >
+                  {r === 'week' ? 'This Week' : r === 'month' ? 'This Month' : 'Quarter'}
+                </button>
+              ))}
             </div>
           </div>
         </header>
@@ -542,7 +566,24 @@ export default function App() {
                     <BookOpen size={16} className="text-[#8b8b93] mb-3 group-hover/card:text-indigo-400 transition-colors" />
                     <p className="text-sm text-[#e2e2e5] leading-relaxed">Who should I call today?</p>
                   </div>
-                  <div className="bg-[#202022] hover:bg-[#2a2a2d] transition-all p-4 rounded-xl border border-white/5 cursor-pointer hover:border-white/10 group/card">
+                  <div
+                    onClick={async () => {
+                      const q = "Show me recent permits in Tulsa";
+                      setChatMessages([{role: 'user', content: q}]);
+                      setIsAiLoading(true);
+                      try {
+                        const res = await aiApi.search(q);
+                        const { message, signals: sigs } = res.data;
+                        const sigSummary = sigs.slice(0, 3).map(s => `• **${s.title}** (${s.source})${s.account_name ? ` — ${s.account_name}` : ''}`).join('\n');
+                        setChatMessages(prev => [...prev, { role: 'assistant', content: message + (sigSummary ? '\n\n' + sigSummary : '') }]);
+                      } catch {
+                        setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't connect to the API." }]);
+                      } finally {
+                        setIsAiLoading(false);
+                      }
+                    }}
+                    className="bg-[#202022] hover:bg-[#2a2a2d] transition-all p-4 rounded-xl border border-white/5 cursor-pointer hover:border-white/10 group/card"
+                  >
                     <Building2 size={16} className="text-[#8b8b93] mb-3 group-hover/card:text-indigo-400 transition-colors" />
                     <p className="text-sm text-[#e2e2e5] leading-relaxed">Show me recent permits in Tulsa</p>
                   </div>
@@ -588,26 +629,43 @@ export default function App() {
                 placeholder="Ask anything about your accounts or signals..." 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
+                onKeyDown={async (e) => {
                   if (e.key === 'Enter' && query.trim()) {
-                     setChatMessages(prev => [...prev, {role: 'user', content: query}]);
+                     const userQuery = query;
+                     setChatMessages(prev => [...prev, {role: 'user', content: userQuery}]);
                      setQuery('');
-                     // Just a mock response for other queries
-                     setTimeout(() => {
-                        setChatMessages(prev => [...prev, {role: 'assistant', content: "I'm still learning! Right now, try asking me 'Who should I call today?'"}]);
-                     }, 1000);
+                     setIsAiLoading(true);
+                     try {
+                       const res = await aiApi.search(userQuery);
+                       const { message, signals: sigs } = res.data;
+                       const sigSummary = sigs.slice(0, 3).map(s => `• **${s.title}** (${s.source})${s.account_name ? ` — ${s.account_name}` : ''}`).join('\n');
+                       setChatMessages(prev => [...prev, { role: 'assistant', content: message + (sigSummary ? '\n\n' + sigSummary : '') }]);
+                     } catch {
+                       setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't process that query. Try something like 'Show me OSHA signals in Texas'." }]);
+                     } finally {
+                       setIsAiLoading(false);
+                     }
                   }
                 }}
                 className="w-full bg-[#141416] border border-white/10 rounded-xl py-3.5 pl-12 pr-14 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-white placeholder-[#8b8b93] transition-all"
               />
-              <button 
-                onClick={() => {
+              <button
+                onClick={async () => {
                   if (query.trim()) {
-                     setChatMessages(prev => [...prev, {role: 'user', content: query}]);
+                     const userQuery = query;
+                     setChatMessages(prev => [...prev, {role: 'user', content: userQuery}]);
                      setQuery('');
-                     setTimeout(() => {
-                        setChatMessages(prev => [...prev, {role: 'assistant', content: "I'm still learning! Right now, try asking me 'Who should I call today?'"}]);
-                     }, 1000);
+                     setIsAiLoading(true);
+                     try {
+                       const res = await aiApi.search(userQuery);
+                       const { message, signals: sigs } = res.data;
+                       const sigSummary = sigs.slice(0, 3).map(s => `• **${s.title}** (${s.source})${s.account_name ? ` — ${s.account_name}` : ''}`).join('\n');
+                       setChatMessages(prev => [...prev, { role: 'assistant', content: message + (sigSummary ? '\n\n' + sigSummary : '') }]);
+                     } catch {
+                       setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't process that query." }]);
+                     } finally {
+                       setIsAiLoading(false);
+                     }
                   }
                 }}
                 className="absolute inset-y-2 right-2 w-10 h-10 bg-indigo-600 hover:bg-indigo-500 transition-colors rounded-lg flex items-center justify-center text-white"
@@ -628,14 +686,14 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <span className="text-3xl font-bold text-white">{metrics.activeAccounts}</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#10b981]/10 text-[#10b981] text-xs font-medium border border-[#10b981]/20 flex items-center">
-                  +12.4%
+                <span className={`px-2 py-0.5 rounded-md text-xs font-medium border flex items-center ${pctChange(trends.accounts).startsWith('-') ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'}`}>
+                  {pctChange(trends.accounts)}
                 </span>
                 <Info size={14} className="text-[#8b8b93]" />
               </div>
               <div className="h-24 w-full -ml-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData1}>
+                  <AreaChart data={toChartData(trends.accounts)}>
                     <defs>
                       <linearGradient id="colorBlue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -650,7 +708,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
               <div className="flex justify-between text-[10px] text-[#8b8b93] mt-2 px-1">
-                <span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
+                {(trends.accounts.length ? trends.accounts : [0,0,0,0,0,0]).map((_, i) => <span key={i}>W{i+1}</span>)}
               </div>
             </div>
 
@@ -662,14 +720,14 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <span className="text-3xl font-bold text-white">{metrics.newSignals}</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#10b981]/10 text-[#10b981] text-xs font-medium border border-[#10b981]/20 flex items-center">
-                  +34.2%
+                <span className={`px-2 py-0.5 rounded-md text-xs font-medium border flex items-center ${pctChange(trends.signals).startsWith('-') ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'}`}>
+                  {pctChange(trends.signals)}
                 </span>
                 <Info size={14} className="text-[#8b8b93]" />
               </div>
               <div className="h-24 w-full -ml-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData2}>
+                  <AreaChart data={toChartData(trends.signals)}>
                     <defs>
                       <linearGradient id="colorPink" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3}/>
@@ -684,7 +742,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
               <div className="flex justify-between text-[10px] text-[#8b8b93] mt-2 px-1 border-t border-white/5 pt-2">
-                <span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span>
+                {(trends.signals.length ? trends.signals : [0,0,0,0,0,0]).map((_, i) => <span key={i}>W{i+1}</span>)}
               </div>
             </div>
 
@@ -696,14 +754,14 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <span className="text-3xl font-bold text-white">{metrics.highPriorityContacts}</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#10b981]/10 text-[#10b981] text-xs font-medium border border-[#10b981]/20 flex items-center">
-                  +18.3%
+                <span className={`px-2 py-0.5 rounded-md text-xs font-medium border flex items-center ${pctChange(trends.contacts).startsWith('-') ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'}`}>
+                  {pctChange(trends.contacts)}
                 </span>
                 <Info size={14} className="text-[#8b8b93]" />
               </div>
               <div className="h-24 w-full -ml-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData3}>
+                  <AreaChart data={toChartData(trends.contacts)}>
                     <defs>
                       <linearGradient id="colorOrange" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
@@ -718,7 +776,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
               <div className="flex justify-between text-[10px] text-[#8b8b93] mt-2 px-1 border-t border-white/5 pt-2">
-                <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>
+                {(trends.contacts.length ? trends.contacts : [0,0,0,0,0,0]).map((_, i) => <span key={i}>W{i+1}</span>)}
               </div>
             </div>
 
@@ -730,14 +788,14 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3 mb-6 relative z-10">
                 <span className="text-3xl font-bold text-white">{metrics.outreachSent}</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#10b981]/10 text-[#10b981] text-xs font-medium border border-[#10b981]/20 flex items-center">
-                  +10.5%
+                <span className={`px-2 py-0.5 rounded-md text-xs font-medium border flex items-center ${pctChange(trends.outreach).startsWith('-') ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'}`}>
+                  {pctChange(trends.outreach)}
                 </span>
                 <Info size={14} className="text-[#8b8b93]" />
               </div>
               <div className="h-24 w-full -ml-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData4}>
+                  <AreaChart data={toChartData(trends.outreach)}>
                     <defs>
                       <linearGradient id="colorIndigo" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -752,7 +810,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
                <div className="flex justify-between text-[10px] text-[#8b8b93] mt-2 px-1 border-t border-white/5 pt-2">
-                <span>0</span><span>200</span><span>400</span><span>600</span><span>800</span>
+                {(trends.outreach.length ? trends.outreach : [0,0,0,0,0,0]).map((_, i) => <span key={i}>W{i+1}</span>)}
               </div>
             </div>
 
@@ -880,6 +938,98 @@ export default function App() {
 
         </div>
       </main>
+      )}
+
+      {/* Global Search Overlay */}
+      {showSearch && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[15vh]" onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}>
+          <div className="w-[560px] bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/5">
+              <Search size={18} className="text-[#8b8b93] shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search accounts, contacts, signals..."
+                value={searchQuery}
+                onChange={async (e) => {
+                  const q = e.target.value;
+                  setSearchQuery(q);
+                  if (q.length < 2) { setSearchResults(null); return; }
+                  setSearchLoading(true);
+                  try {
+                    const res = await searchApi.search(q);
+                    setSearchResults(res.data);
+                  } catch { setSearchResults(null); }
+                  finally { setSearchLoading(false); }
+                }}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setShowSearch(false); setSearchQuery(''); setSearchResults(null); } }}
+                className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-[#8b8b93]"
+              />
+              {searchLoading && <Loader2 size={16} className="animate-spin text-[#8b8b93]" />}
+              <button onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults(null); }} className="text-[#8b8b93] hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+            {searchResults && (
+              <div className="max-h-[400px] overflow-y-auto p-2">
+                {searchResults.accounts.length === 0 && searchResults.contacts.length === 0 && searchResults.signals.length === 0 ? (
+                  <p className="text-center text-[#8b8b93] text-sm py-8">No results found</p>
+                ) : (
+                  <>
+                    {searchResults.accounts.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] uppercase tracking-wider text-[#8b8b93] font-semibold px-3 py-1.5">Accounts</p>
+                        {searchResults.accounts.map(a => (
+                          <div key={a.id} onClick={() => { setSelectedAccountId(a.id); setActiveTab('companyDetail'); setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}
+                            className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[#202022] cursor-pointer transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={14} className="text-[#8b8b93]" />
+                              <span className="text-sm text-white">{a.name}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${a.tier === 1 ? 'bg-red-500/10 text-red-400' : a.tier === 2 ? 'bg-blue-500/10 text-blue-400' : 'bg-[#202022] text-[#8b8b93]'}`}>T{a.tier}</span>
+                            </div>
+                            <ArrowRight size={12} className="text-[#8b8b93]" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.contacts.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] uppercase tracking-wider text-[#8b8b93] font-semibold px-3 py-1.5">Contacts</p>
+                        {searchResults.contacts.map(c => (
+                          <div key={c.id} onClick={() => { setSelectedContactId(c.id); setActiveTab('contactDetail'); setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}
+                            className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[#202022] cursor-pointer transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Users size={14} className="text-[#8b8b93]" />
+                              <span className="text-sm text-white">{c.name}</span>
+                              {c.email && <span className="text-xs text-[#8b8b93]">{c.email}</span>}
+                            </div>
+                            <ArrowRight size={12} className="text-[#8b8b93]" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {searchResults.signals.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] uppercase tracking-wider text-[#8b8b93] font-semibold px-3 py-1.5">Signals</p>
+                        {searchResults.signals.map(s => (
+                          <div key={s.id} onClick={() => { setSelectedAccountId(s.account_id); setActiveTab('companyDetail'); setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}
+                            className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[#202022] cursor-pointer transition-colors">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp size={14} className="text-[#8b8b93]" />
+                              <span className="text-sm text-white">{s.title}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#202022] text-[#8b8b93]">{s.source}</span>
+                            </div>
+                            <ArrowRight size={12} className="text-[#8b8b93]" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
