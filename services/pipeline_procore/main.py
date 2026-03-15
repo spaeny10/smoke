@@ -10,6 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from packages.db.session import async_session
 from packages.db.models import Account, CompanyAlias, Signal
 from packages.matching.utils import normalize_company_name, fuzzy_match_company
+from packages.matching.signal_gates import load_enabled_gates, signal_passes_gates
 from packages.integrations.procore import ProcoreClient
 
 # Procore stage names mapped to our internal stages
@@ -83,16 +84,22 @@ async def fetch_procore_data():
         records = MOCK_PROCORE_DATA
 
     async with async_session() as db:
+        # Load signal gates for filtering
+        gates = await load_enabled_gates(db)
+
         # Load accounts for matching
-        result = await db.execute(select(Account.id, Account.name_normalized))
-        existing_accounts = {row.name_normalized: str(row.id) for row in result.all()}
-        
+        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
+        rows = result.all()
+        existing_accounts = {row.name_normalized: str(row.id) for row in rows}
+        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
+
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
-        
+
         records_fetched = len(records)
         records_matched = 0
         records_scored = 0
+        records_gated = 0
 
         for record in records:
             company_name = record["company_name"]
@@ -129,7 +136,22 @@ async def fetch_procore_data():
                 )
                 if dup_check.scalars().first():
                     continue # Already processed
-                
+
+                # Gate check — skip signals that don't match any enabled gate
+                loc = record.get("location", "")
+                loc_state = loc.split(",")[1].strip() if "," in loc else None
+                acct_info = account_details.get(str(matched_id), {})
+                if not signal_passes_gates(
+                    gates,
+                    location_state=loc_state,
+                    source="procore",
+                    project_value=record["estimated_value"],
+                    account_segment=acct_info.get("segment"),
+                    account_employee_count=acct_info.get("employee_count"),
+                ):
+                    records_gated += 1
+                    continue
+
                 # Calculate score
                 pts = 0
                 heat = "cool"
@@ -182,7 +204,7 @@ async def fetch_procore_data():
         await db.commit()
     
     print(f"[{datetime.now().isoformat()}] Procore pipeline complete.")
-    print(f"records_fetched={records_fetched} records_matched={records_matched} records_scored={records_scored}")
+    print(f"records_fetched={records_fetched} records_matched={records_matched} records_gated={records_gated} records_scored={records_scored}")
 
 if __name__ == "__main__":
     asyncio.run(fetch_procore_data())

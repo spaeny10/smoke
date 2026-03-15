@@ -330,6 +330,7 @@ export interface PipelineScanStatus {
     fema: number;
     sec: number;
     epa: number;
+    procore: number;
     total_new: number;
   } | null;
   error: string | null;

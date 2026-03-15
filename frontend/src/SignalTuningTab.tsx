@@ -17,6 +17,7 @@ const SOURCES = [
   { value: 'usaspending', label: 'Contracts' },
   { value: 'news', label: 'News' },
   { value: 'osha', label: 'OSHA' },
+  { value: 'jobtitles', label: 'Job Titles' },
   { value: 'procore', label: 'Procore' },
   { value: 'sam', label: 'SAM.gov' },
   { value: 'fema', label: 'FEMA' },

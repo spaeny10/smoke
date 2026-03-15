@@ -65,6 +65,7 @@ async def _run_pipelines():
         from services.pipeline_fema.main import fetch_fema_data
         from services.pipeline_sec.main import fetch_sec_data
         from services.pipeline_epa.main import fetch_epa_data
+        from services.pipeline_procore.main import fetch_procore_data
 
         results = {}
 
@@ -113,7 +114,11 @@ async def _run_pipelines():
         after_epa = await _count()
         results["epa"] = after_epa - after_sec
 
-        results["total_new"] = after_epa - before
+        await fetch_procore_data()
+        after_procore = await _count()
+        results["procore"] = after_procore - after_epa
+
+        results["total_new"] = after_procore - before
 
         _scan_state["last_result"] = results
         _scan_state["last_run"] = datetime.now(timezone.utc).isoformat()
