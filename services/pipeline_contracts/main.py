@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from packages.db.session import async_session
 from packages.db.models import Account, CompanyAlias, Signal
 from packages.matching.utils import normalize_company_name, fuzzy_match_company
+from packages.matching.signal_gates import load_enabled_gates, signal_passes_gates
 
 # USASpending.gov API — free, no key required
 # Searches for recent construction contract awards using NAICS codes
@@ -151,9 +152,14 @@ async def fetch_contract_data():
         records = MOCK_CONTRACT_DATA
 
     async with async_session() as db:
+        # Load signal gates for filtering
+        gates = await load_enabled_gates(db)
+
         # Load accounts for matching
-        result = await db.execute(select(Account.id, Account.name_normalized))
-        existing_accounts = {row.name_normalized: str(row.id) for row in result.all()}
+        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
+        rows = result.all()
+        existing_accounts = {row.name_normalized: str(row.id) for row in rows}
+        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
 
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
@@ -161,6 +167,7 @@ async def fetch_contract_data():
         records_fetched = len(records)
         records_matched = 0
         records_scored = 0
+        records_gated = 0
 
         for record in records:
             company_name = record["contractor_name"]
@@ -187,6 +194,7 @@ async def fetch_contract_data():
                     await db.flush()
                     matched_id = new_acc.id
                     existing_accounts[norm_name] = str(new_acc.id)
+                    account_details[str(new_acc.id)] = {"segment": None, "employee_count": None}
 
             if matched_id:
                 records_matched += 1
@@ -196,6 +204,19 @@ async def fetch_contract_data():
                     select(Signal).where(Signal.external_id == record["id"])
                 )
                 if dup_check.scalars().first():
+                    continue
+
+                # Gate check — skip signals that don't match any enabled gate
+                acct_info = account_details.get(str(matched_id), {})
+                if not signal_passes_gates(
+                    gates,
+                    location_state=record.get("place_state"),
+                    source="usaspending",
+                    project_value=record["award_amount"],
+                    account_segment=acct_info.get("segment"),
+                    account_employee_count=acct_info.get("employee_count"),
+                ):
+                    records_gated += 1
                     continue
 
                 # Score based on contract value and agency
@@ -272,7 +293,7 @@ async def fetch_contract_data():
         await db.commit()
 
     print(f"[{datetime.now().isoformat()}] Federal contracts pipeline complete.")
-    print(f"records_fetched={records_fetched} records_matched={records_matched} records_scored={records_scored}")
+    print(f"records_fetched={records_fetched} records_matched={records_matched} records_gated={records_gated} records_scored={records_scored}")
 
 if __name__ == "__main__":
     asyncio.run(fetch_contract_data())

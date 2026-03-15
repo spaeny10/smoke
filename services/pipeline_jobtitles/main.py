@@ -11,6 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from packages.db.session import async_session
 from packages.db.models import Account, Contact, Signal
+from packages.matching.signal_gates import load_enabled_gates, signal_passes_gates
 from services.pipeline_jobtitles.scrapers.linkedin_google import scrape_linkedin_via_google
 from services.pipeline_jobtitles.scrapers.company_website import scrape_company_website
 from services.pipeline_jobtitles.role_classifier import classify_role
@@ -65,6 +66,9 @@ async def fetch_jobtitle_data(account_id: str | None = None):
     print(f"[{datetime.now().isoformat()}] Starting job title pipeline ({mode} mode)...")
 
     async with async_session() as db:
+        # Load signal gates for filtering
+        gates = await load_enabled_gates(db)
+
         # Load target accounts
         if account_id:
             result = await db.execute(
@@ -175,18 +179,25 @@ async def fetch_jobtitle_data(account_id: str | None = None):
                         select(Signal).where(Signal.external_id == signal_ext_id)
                     )
                     if not dup_check.scalars().first():
-                        signal = Signal(
-                            account_id=acct.id,
+                        # Gate check — skip signal if it doesn't match any enabled gate
+                        if signal_passes_gates(
+                            gates,
                             source="jobtitles",
-                            signal_type="contacts_discovered",
-                            heat="warm",
-                            title=f"{added_for_account} New Contact{'s' if added_for_account != 1 else ''} Discovered",
-                            detail=f"Discovered {added_for_account} new contact(s) via job title scraping",
-                            raw_data={"contacts_added": added_for_account, "date": today_str},
-                            score_contribution=5 + (added_for_account * 2),
-                            external_id=signal_ext_id,
-                        )
-                        db.add(signal)
+                            account_segment=getattr(acct, "segment", None),
+                            account_employee_count=getattr(acct, "employee_count", None),
+                        ):
+                            signal = Signal(
+                                account_id=acct.id,
+                                source="jobtitles",
+                                signal_type="contacts_discovered",
+                                heat="warm",
+                                title=f"{added_for_account} New Contact{'s' if added_for_account != 1 else ''} Discovered",
+                                detail=f"Discovered {added_for_account} new contact(s) via job title scraping",
+                                raw_data={"contacts_added": added_for_account, "date": today_str},
+                                score_contribution=5 + (added_for_account * 2),
+                                external_id=signal_ext_id,
+                            )
+                            db.add(signal)
 
                 accounts_processed += 1
                 print(f"  [{accounts_processed}/{len(accounts)}] {acct.name}: +{added_for_account} contacts ({total_skipped} skipped)")

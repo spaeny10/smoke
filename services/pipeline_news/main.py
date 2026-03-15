@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from packages.db.session import async_session
 from packages.db.models import Account, CompanyAlias, Signal
 from packages.matching.utils import normalize_company_name, fuzzy_match_company
+from packages.matching.signal_gates import load_enabled_gates, signal_passes_gates
 
 # Google News RSS — no API key required
 # We search for construction industry terms to find relevant news
@@ -163,9 +164,14 @@ async def fetch_news_data():
         records = MOCK_NEWS_DATA
 
     async with async_session() as db:
+        # Load signal gates for filtering
+        gates = await load_enabled_gates(db)
+
         # Load accounts for matching
-        result = await db.execute(select(Account.id, Account.name_normalized))
-        existing_accounts = {row.name_normalized: str(row.id) for row in result.all()}
+        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
+        rows = result.all()
+        existing_accounts = {row.name_normalized: str(row.id) for row in rows}
+        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
 
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
@@ -173,6 +179,7 @@ async def fetch_news_data():
         records_fetched = len(records)
         records_matched = 0
         records_scored = 0
+        records_gated = 0
 
         for record in records:
             company_name = record["matched_company"]
@@ -195,6 +202,7 @@ async def fetch_news_data():
                     await db.flush()
                     matched_id = new_acc.id
                     existing_accounts[norm_name] = str(new_acc.id)
+                    account_details[str(new_acc.id)] = {"segment": None, "employee_count": None}
 
             if matched_id:
                 records_matched += 1
@@ -204,6 +212,17 @@ async def fetch_news_data():
                     select(Signal).where(Signal.external_id == record["id"])
                 )
                 if dup_check.scalars().first():
+                    continue
+
+                # Gate check — skip signals that don't match any enabled gate
+                acct_info = account_details.get(str(matched_id), {})
+                if not signal_passes_gates(
+                    gates,
+                    source="news",
+                    account_segment=acct_info.get("segment"),
+                    account_employee_count=acct_info.get("employee_count"),
+                ):
+                    records_gated += 1
                     continue
 
                 # Score based on headline content
@@ -279,7 +298,7 @@ async def fetch_news_data():
         await db.commit()
 
     print(f"[{datetime.now().isoformat()}] News pipeline complete.")
-    print(f"records_fetched={records_fetched} records_matched={records_matched} records_scored={records_scored}")
+    print(f"records_fetched={records_fetched} records_matched={records_matched} records_gated={records_gated} records_scored={records_scored}")
 
 if __name__ == "__main__":
     asyncio.run(fetch_news_data())

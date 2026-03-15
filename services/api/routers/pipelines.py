@@ -110,6 +110,17 @@ async def _run_pipelines():
             except Exception as dedup_err:
                 logger.warning(f"Auto-dedup failed: {dedup_err}")
 
+        # Enforce signal gates on all signals (clean up any that slipped through or pre-date gates)
+        try:
+            from packages.matching.signal_gates import enforce_signal_gates
+            async with async_session() as db:
+                gated = await enforce_signal_gates(db)
+            results["gate_enforced"] = gated
+            if gated:
+                logger.info(f"Gate enforcement removed {gated} signals")
+        except Exception as gate_err:
+            logger.warning(f"Gate enforcement failed: {gate_err}")
+
     except Exception as e:
         _scan_state["error"] = str(e)
         logger.exception("Pipeline scan failed")
