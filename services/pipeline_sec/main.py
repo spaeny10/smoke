@@ -101,22 +101,26 @@ async def fetch_from_edgar() -> list[dict]:
                     if not entity:
                         continue
 
-                    accession = source.get("accession_no", source.get("file_num", ""))
-                    # EDGAR may include state of incorporation or business address state
-                    state = (
+                    # EDGAR sometimes returns lists — ensure all fields are strings
+                    def _str(val, default=""):
+                        if isinstance(val, list):
+                            return val[0] if val else default
+                        return str(val) if val else default
+
+                    accession = _str(source.get("accession_no") or source.get("file_num"))
+                    state = _str(
                         source.get("state_of_incorp")
                         or source.get("state")
                         or source.get("business_address_state")
-                        or ""
                     )
                     all_records.append({
                         "id": f"sec_{accession}",
                         "accession_number": accession,
                         "company_name": entity,
-                        "form_type": source.get("form_type", ""),
-                        "file_date": source.get("file_date", ""),
-                        "description": (source.get("file_description", "") or "")[:500],
-                        "cik": source.get("entity_id", ""),
+                        "form_type": _str(source.get("form_type")),
+                        "file_date": _str(source.get("file_date")),
+                        "description": _str(source.get("file_description"))[:500],
+                        "cik": _str(source.get("entity_id")),
                         "state": state,
                     })
 
@@ -222,10 +226,7 @@ async def fetch_sec_data():
             detail = " | ".join(detail_parts)
 
             # Build EDGAR filing URL
-            source_url = None
-            if accession:
-                acc_clean = accession.replace("-", "")
-                source_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type={form}&dateb=&owner=include&count=10" if cik else None
+            source_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type={form}&dateb=&owner=include&count=10" if cik else None
 
             source_date = None
             try:
