@@ -41,7 +41,7 @@ import LoginPage from './LoginPage';
 import SettingsPage from './SettingsPage';
 import MapView from './MapView';
 import SequencesPage from './SequencesPage';
-import { metricsApi, reportsApi, outreachApi, authApi, accountsApi, notificationsApi, aiApi, searchApi, type UserProfile, type PriorityQueueItem, type AppNotification, type GlobalSearchResult } from './api';
+import { metricsApi, reportsApi, outreachApi, authApi, accountsApi, notificationsApi, aiApi, searchApi, pipelinesApi, type UserProfile, type PriorityQueueItem, type AppNotification, type GlobalSearchResult } from './api';
 
 const PIE_COLORS = ['#10b981', '#ec4899', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#06b6d4'];
 
@@ -51,9 +51,11 @@ function toChartData(values: number[]) {
 
 function pctChange(values: number[]): string {
   if (values.length < 2) return '+0%';
-  const prev = values[values.length - 2] || 1;
+  const prev = values[values.length - 2];
   const curr = values[values.length - 1];
-  const pct = ((curr - prev) / (prev || 1)) * 100;
+  if (prev === 0 && curr === 0) return '+0%';
+  if (prev === 0) return `+${curr > 0 ? '100' : '0'}.0%`;
+  const pct = ((curr - prev) / prev) * 100;
   const sign = pct >= 0 ? '+' : '';
   return `${sign}${pct.toFixed(1)}%`;
 }
@@ -99,6 +101,7 @@ export default function App() {
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('month');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('smoke_sidebarCollapsed') === 'true');
+  const [scanRunning, setScanRunning] = useState(false);
 
   // Auth check on mount / token change
   useEffect(() => {
@@ -120,8 +123,8 @@ export default function App() {
       });
   }, [authToken]);
 
-  // Fetch dashboard data only when authenticated
-  useEffect(() => {
+  // Refresh dashboard data helper
+  const refreshDashboard = () => {
     if (!userProfile) return;
     metricsApi.get()
       .then(res => {
@@ -151,6 +154,33 @@ export default function App() {
       .then(res => setPriorityQueue(res.data.items))
       .catch(() => {})
       .finally(() => setPqLoading(false));
+  };
+
+  // Fetch dashboard data only when authenticated
+  useEffect(() => {
+    refreshDashboard();
+  }, [userProfile]);
+
+  // Poll pipeline scan status — auto-refresh dashboard when scan finishes
+  useEffect(() => {
+    if (!userProfile) return;
+    let wasRunning = false;
+    const checkScan = () => {
+      pipelinesApi.status()
+        .then(res => {
+          const running = res.data.running;
+          setScanRunning(running);
+          if (wasRunning && !running) {
+            // Scan just finished — refresh dashboard data
+            refreshDashboard();
+          }
+          wasRunning = running;
+        })
+        .catch(() => {});
+    };
+    checkScan();
+    const interval = setInterval(checkScan, 5000);
+    return () => clearInterval(interval);
   }, [userProfile]);
 
   // Fetch notifications + poll unread count
@@ -712,6 +742,12 @@ export default function App() {
 
           {/* Metrics Grid (Right Span 7) */}
           <div className="lg:col-span-7 grid grid-cols-2 gap-4 lg:gap-6">
+            {scanRunning && (
+              <div className="col-span-2 flex items-center gap-3 px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-sm">
+                <Loader2 size={16} className="animate-spin text-indigo-400" />
+                <span className="text-indigo-300">Signal scan in progress — dashboard will refresh automatically when complete.</span>
+              </div>
+            )}
             
             {/* Metric 1 */}
             <div className="metric-card group">
