@@ -101,9 +101,10 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
     }
   }, [scanStatus?.running, fetchScanStatus]);
 
-  const handleRunScan = () => {
+  const handleRunScan = (fresh?: boolean) => {
+    if (fresh && !confirm('This will clear all existing signals and re-fetch everything. Continue?')) return;
     setScanStarting(true);
-    pipelinesApi.run()
+    pipelinesApi.run(fresh)
       .then(() => {
         setScanStatus(prev => prev ? { ...prev, running: true } : { running: true, last_run: null, last_result: null, error: null });
         fetchScanStatus();
@@ -337,19 +338,29 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
               </div>
             </div>
 
-            <button
-              onClick={handleRunScan}
-              disabled={scanStarting || scanStatus?.running}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50"
-            >
-              {scanStatus?.running ? (
-                <><Loader2 size={15} className="animate-spin" /> Scanning...</>
-              ) : scanStarting ? (
-                <><Loader2 size={15} className="animate-spin" /> Starting...</>
-              ) : (
-                <><Radar size={15} /> Run Scan</>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleRunScan()}
+                disabled={scanStarting || scanStatus?.running}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {scanStatus?.running ? (
+                  <><Loader2 size={15} className="animate-spin" /> Scanning...</>
+                ) : scanStarting ? (
+                  <><Loader2 size={15} className="animate-spin" /> Starting...</>
+                ) : (
+                  <><Radar size={15} /> Run Scan</>
+                )}
+              </button>
+              <button
+                onClick={() => handleRunScan(true)}
+                disabled={scanStarting || scanStatus?.running}
+                className="flex items-center gap-2 text-[#8b8b93] hover:text-white text-sm font-medium py-2.5 px-4 rounded-xl border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+                title="Clear all existing signals and re-fetch from scratch"
+              >
+                Fresh Scan
+              </button>
+            </div>
           </div>
 
           {/* Last result */}

@@ -155,15 +155,32 @@ async def _run_pipelines():
 
 
 @router.post("/run")
-async def run_pipelines(user: User = Depends(require_director)):
-    """Trigger all signal pipelines. Director only. Runs in background."""
+async def run_pipelines(
+    user: User = Depends(require_director),
+    db: AsyncSession = Depends(get_db),
+    fresh: bool = False,
+):
+    """Trigger all signal pipelines. Director only. Runs in background.
+
+    Pass ?fresh=true to clear all existing signals before scanning,
+    so data is re-fetched with latest enrichment/formatting.
+    """
     if _scan_state["running"]:
         raise HTTPException(status_code=409, detail="A scan is already running")
+
+    if fresh:
+        deleted = (await db.execute(select(func.count(Signal.id)))).scalar() or 0
+        await db.execute(Signal.__table__.delete())
+        await db.commit()
+        logger.info(f"Fresh scan: cleared {deleted} existing signals")
 
     # Fire and forget — run pipelines in background
     asyncio.create_task(_run_pipelines())
 
-    return {"status": "started", "message": "Signal scan started. Check /api/pipelines/status for progress."}
+    msg = "Signal scan started."
+    if fresh:
+        msg = f"Cleared {deleted} old signals. Signal scan started."
+    return {"status": "started", "message": msg}
 
 
 @router.get("/status")

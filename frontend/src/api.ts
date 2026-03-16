@@ -367,8 +367,8 @@ export interface PipelineScanStatus {
 }
 
 export const pipelinesApi = {
-  run: () =>
-    api.post<{ status: string; message: string }>('/api/pipelines/run'),
+  run: (fresh?: boolean) =>
+    api.post<{ status: string; message: string }>(`/api/pipelines/run${fresh ? '?fresh=true' : ''}`),
   status: () =>
     api.get<PipelineScanStatus>('/api/pipelines/status'),
 };
