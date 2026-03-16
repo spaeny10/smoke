@@ -79,20 +79,13 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      accountsApi.get(accountId),
-      accountsApi.getContacts(accountId),
-      accountsApi.getSignals(accountId),
-      projectsApi.list({ account_id: accountId, limit: 100 }),
-      accountsApi.getLocations(accountId),
-    ]).then(([acctRes, contactsRes, signalsRes, projRes, locRes]) => {
-      setAccount(acctRes.data);
-      setContacts(contactsRes.data);
-      setSignals(signalsRes.data);
-      setAccountApiProjects(projRes.data.items);
-      setLocations(locRes.data);
-    }).catch(() => {})
-      .finally(() => setLoading(false));
+    // Fetch each independently so one failure doesn't blank the whole page
+    const acctP = accountsApi.get(accountId).then(r => setAccount(r.data)).catch(() => {});
+    const conP = accountsApi.getContacts(accountId).then(r => setContacts(r.data)).catch(() => {});
+    const sigP = accountsApi.getSignals(accountId).then(r => setSignals(r.data)).catch(() => {});
+    const projP = projectsApi.list({ account_id: accountId, limit: 100 }).then(r => setAccountApiProjects(r.data.items)).catch(() => {});
+    const locP = accountsApi.getLocations(accountId).then(r => setLocations(r.data)).catch(() => {});
+    Promise.all([acctP, conP, sigP, projP, locP]).finally(() => setLoading(false));
   }, [accountId]);
 
   // Set of signal IDs that already have a project created from them
