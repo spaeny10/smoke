@@ -192,10 +192,12 @@ async def fetch_jobtitle_data(account_id: str | None = None):
                                 signal_type="contacts_discovered",
                                 heat="warm",
                                 title=f"{added_for_account} New Contact{'s' if added_for_account != 1 else ''} Discovered",
-                                detail=f"Discovered {added_for_account} new contact(s) via job title scraping",
+                                detail=f"Discovered {added_for_account} new contact(s) via job title scraping for {acct.name}",
                                 raw_data={"contacts_added": added_for_account, "date": today_str},
                                 score_contribution=5 + (added_for_account * 2),
                                 external_id=signal_ext_id,
+                                location_city=getattr(acct, "hq_city", None),
+                                location_state=getattr(acct, "hq_state", None),
                             )
                             db.add(signal)
 

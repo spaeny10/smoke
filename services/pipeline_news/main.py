@@ -168,10 +168,10 @@ async def fetch_news_data():
         gates = await load_enabled_gates(db)
 
         # Load accounts for matching
-        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
+        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count, Account.hq_state, Account.hq_city))
         rows = result.all()
         existing_accounts = {row.name_normalized: str(row.id) for row in rows}
-        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
+        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count, "hq_state": row.hq_state, "hq_city": row.hq_city} for row in rows}
 
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
@@ -202,7 +202,7 @@ async def fetch_news_data():
                     await db.flush()
                     matched_id = new_acc.id
                     existing_accounts[norm_name] = str(new_acc.id)
-                    account_details[str(new_acc.id)] = {"segment": None, "employee_count": None}
+                    account_details[str(new_acc.id)] = {"segment": None, "employee_count": None, "hq_state": None, "hq_city": None}
 
             if matched_id:
                 records_matched += 1
@@ -284,6 +284,11 @@ async def fetch_news_data():
 
                 source_url = record.get("url") or None
 
+                # Use matched account's HQ location (news doesn't have its own)
+                acct_info = account_details.get(str(matched_id), {}) if matched_id else {}
+                loc_state = acct_info.get("hq_state") or None
+                loc_city = acct_info.get("hq_city") or None
+
                 new_signal = Signal(
                     account_id=matched_id,
                     source="news",
@@ -295,6 +300,8 @@ async def fetch_news_data():
                     score_contribution=pts,
                     external_id=record["id"],
                     project_value=project_value,
+                    location_city=loc_city,
+                    location_state=loc_state,
                     source_url=source_url,
                     source_date=source_date,
                 )

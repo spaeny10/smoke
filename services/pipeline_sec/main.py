@@ -34,6 +34,7 @@ MOCK_SEC_DATA = [
         "file_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "description": "Fluor Corporation announced a $2.1 billion capital expenditure program for new construction projects across the southeastern United States.",
         "cik": "0001124198",
+        "state": "TX",
     },
     {
         "id": "SEC-0000950170-26-008901",
@@ -43,6 +44,7 @@ MOCK_SEC_DATA = [
         "file_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "description": "AECOM reported increased capital expenditure plans including new facility construction in Texas and California markets.",
         "cik": "0001047469",
+        "state": "CA",
     },
     {
         "id": "SEC-0001564590-26-005678",
@@ -52,6 +54,7 @@ MOCK_SEC_DATA = [
         "file_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "description": "Jacobs Solutions secured a major construction contract for infrastructure modernization valued at approximately $800 million.",
         "cik": "0000049826",
+        "state": "TX",
     },
 ]
 
@@ -99,6 +102,13 @@ async def fetch_from_edgar() -> list[dict]:
                         continue
 
                     accession = source.get("accession_no", source.get("file_num", ""))
+                    # EDGAR may include state of incorporation or business address state
+                    state = (
+                        source.get("state_of_incorp")
+                        or source.get("state")
+                        or source.get("business_address_state")
+                        or ""
+                    )
                     all_records.append({
                         "id": f"sec_{accession}",
                         "accession_number": accession,
@@ -107,6 +117,7 @@ async def fetch_from_edgar() -> list[dict]:
                         "file_date": source.get("file_date", ""),
                         "description": (source.get("file_description", "") or "")[:500],
                         "cik": source.get("entity_id", ""),
+                        "state": state,
                     })
 
                 print(f"  EDGAR: {len(all_records)} construction/capex filings found")
@@ -130,10 +141,10 @@ async def fetch_sec_data():
     async with async_session() as db:
         gates = await load_enabled_gates(db)
 
-        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
+        result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count, Account.hq_state))
         rows = result.all()
         existing_accounts = {row.name_normalized: str(row.id) for row in rows}
-        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
+        account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count, "hq_state": row.hq_state} for row in rows}
 
         alias_result = await db.execute(select(CompanyAlias.alias, CompanyAlias.account_id))
         existing_aliases = {row.alias: str(row.account_id) for row in alias_result.all()}
@@ -223,6 +234,11 @@ async def fetch_sec_data():
             except (ValueError, TypeError):
                 pass
 
+            # Location: use EDGAR state, fall back to matched account's HQ state
+            filing_state = record.get("state", "")
+            if not filing_state and matched_id:
+                filing_state = account_details.get(str(matched_id), {}).get("hq_state", "")
+
             new_signal = Signal(
                 account_id=matched_id,
                 source="sec",
@@ -234,6 +250,7 @@ async def fetch_sec_data():
                 score_contribution=pts,
                 external_id=record["id"],
                 project_name=f"{form} Filing — {company_name}"[:100],
+                location_state=filing_state or None,
                 source_url=source_url,
                 source_date=source_date,
             )
