@@ -28,8 +28,11 @@ async def _auto_dedup_signals() -> int:
     """Remove duplicate signals (same source + title per account). Returns count removed."""
     from packages.db.session import async_session as _async_session
     async with _async_session() as db:
+        # Only dedup matched signals — unmatched (NULL account_id) signals are
+        # unique records even if they share a title (e.g. multiple SEC filings).
         result = await db.execute(
             select(Signal.account_id, Signal.source, Signal.title, func.count(Signal.id).label("cnt"))
+            .where(Signal.account_id.isnot(None))
             .group_by(Signal.account_id, Signal.source, Signal.title)
             .having(func.count(Signal.id) > 1)
         )

@@ -310,21 +310,23 @@ async def fetch_permit_data():
                 heat = "cool"
                 permit_type = record.get("permit_type", "").lower()
 
+                addr_short = (record.get("address") or "")[:40]
+                loc_tag = f" — {addr_short}" if addr_short else ""
                 if "new" in permit_type or "construction" in permit_type:
                     pts += 35
                     heat = "hot"
-                    title = "New Construction Permit Filed"
+                    title = f"New Construction Permit{loc_tag}"
                 elif "alteration" in permit_type or "renovation" in permit_type:
                     pts += 20
                     heat = "warm"
-                    title = "Major Renovation Permit Filed"
+                    title = f"Renovation Permit{loc_tag}"
                 elif "demolition" in permit_type:
                     pts += 25
                     heat = "warm"
-                    title = "Demolition Permit Filed (Rebuild Likely)"
+                    title = f"Demolition Permit (Rebuild Likely){loc_tag}"
                 else:
                     pts += 10
-                    title = f"Building Permit: {record.get('permit_type', 'General')}"
+                    title = f"Building Permit: {record.get('permit_type', 'General')}{loc_tag}"
 
                 if record["estimated_value"] >= 100000000:
                     pts += 25

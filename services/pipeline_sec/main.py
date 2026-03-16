@@ -184,15 +184,15 @@ async def fetch_sec_data():
             if form == "8-K":
                 pts = 30
                 heat = "hot"
-                title = "SEC 8-K: Capital Expenditure / Construction Activity"
+                title = f"SEC 8-K: {company_name} — Capital Expenditure / Construction Activity"
             elif form == "10-K":
                 pts = 20
                 heat = "warm"
-                title = "SEC 10-K: Construction/Facility Plans Disclosed"
+                title = f"SEC 10-K: {company_name} — Facility Plans Disclosed"
             else:
                 pts = 15
                 heat = "warm"
-                title = f"SEC {form}: Construction/Capex Mention"
+                title = f"SEC {form}: {company_name} — Construction/Capex Mention"
 
             detail = (
                 f"{record.get('description', '')[:250]} | "

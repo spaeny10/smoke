@@ -163,18 +163,19 @@ async def fetch_sam_data():
             opp_type = (record.get("type") or "").lower()
             org = (record.get("organization") or "").lower()
 
+            opp_title = (record.get("title") or "")[:80]
             if "solicitation" in opp_type or opp_type == "o":
                 pts = 30
                 heat = "hot"
-                title = "Federal Construction Solicitation"
+                title = f"SAM Solicitation: {opp_title}" if opp_title else "Federal Construction Solicitation"
             elif "presolicitation" in opp_type or opp_type == "p":
                 pts = 20
                 heat = "warm"
-                title = "Upcoming Federal Construction Opportunity"
+                title = f"SAM Pre-Sol: {opp_title}" if opp_title else "Upcoming Federal Construction Opportunity"
             else:
                 pts = 15
                 heat = "warm"
-                title = "Federal Construction Opportunity"
+                title = f"SAM Opportunity: {opp_title}" if opp_title else "Federal Construction Opportunity"
 
             if "defense" in org or "army" in org or "navy" in org or "air force" in org:
                 pts += 10

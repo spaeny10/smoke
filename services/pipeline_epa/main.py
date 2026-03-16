@@ -208,17 +208,17 @@ async def fetch_epa_data():
             activity = record.get("activity_type", "")
             permit_type = record.get("permit_type", "")
 
+            facility = record.get("facility_name", "") or company_name
             if activity == "violation":
                 pts = 20
                 heat = "warm"
-                title = f"EPA Violation: {permit_type} — May Require Construction Remediation"
+                title = f"EPA Violation: {facility} — {permit_type}"
             else:
                 pts = 15
                 heat = "cool"
-                title = f"EPA Permit: {permit_type} — Active Construction Project"
+                title = f"EPA Permit: {facility} — {permit_type}"
 
             place = f"{record.get('city', '')}, {record.get('state', '')}".strip(", ")
-            facility = record.get("facility_name", "")
             detail = (
                 f"Facility: {facility} | {permit_type} | "
                 f"Status: {record.get('compliance_status', 'Unknown')}"

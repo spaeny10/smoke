@@ -224,25 +224,26 @@ async def fetch_contract_data():
                 heat = "cool"
                 amount = record["award_amount"]
 
+                desc_short = (record.get("description") or "")[:60]
                 if amount >= 100000000:
                     pts += 50
                     heat = "hot"
-                    title = "Mega Federal Contract Award"
+                    title = f"Mega Contract: {desc_short}" if desc_short else "Mega Federal Contract Award"
                 elif amount >= 50000000:
                     pts += 35
                     heat = "hot"
-                    title = "Major Federal Contract Award"
+                    title = f"Major Contract: {desc_short}" if desc_short else "Major Federal Contract Award"
                 elif amount >= 10000000:
                     pts += 25
                     heat = "warm"
-                    title = "Federal Contract Award"
+                    title = f"Contract Award: {desc_short}" if desc_short else "Federal Contract Award"
                 elif amount >= 1000000:
                     pts += 15
                     heat = "warm"
-                    title = "Federal Contract Award"
+                    title = f"Contract Award: {desc_short}" if desc_short else "Federal Contract Award"
                 else:
                     pts += 5
-                    title = "Small Federal Contract"
+                    title = f"Small Contract: {desc_short}" if desc_short else "Small Federal Contract"
 
                 # Bonus for DOD/infrastructure (high-value follow-on work)
                 agency = (record.get("awarding_agency") or "").lower()
