@@ -361,16 +361,22 @@ export default function SignalTuningTab({ userProfile }: SignalTuningTabProps) {
                   {scanStatus.last_result.total_new} new signals found
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-5 gap-2">
                 {[
                   { label: 'Permits', count: scanStatus.last_result.permits },
                   { label: 'Contracts', count: scanStatus.last_result.contracts },
                   { label: 'News', count: scanStatus.last_result.news },
                   { label: 'OSHA', count: scanStatus.last_result.osha },
+                  { label: 'SAM.gov', count: scanStatus.last_result.sam },
+                  { label: 'FEMA', count: scanStatus.last_result.fema },
+                  { label: 'SEC', count: scanStatus.last_result.sec },
+                  { label: 'EPA', count: scanStatus.last_result.epa },
+                  { label: 'Procore', count: scanStatus.last_result.procore },
+                  { label: 'Contacts', count: scanStatus.last_result.jobtitles },
                 ].map(p => (
-                  <div key={p.label} className="bg-[#141416] rounded-xl p-3 text-center border border-white/5">
-                    <div className="text-lg font-semibold text-white">{p.count}</div>
-                    <div className="text-[10px] text-[#8b8b93] uppercase tracking-wider">{p.label}</div>
+                  <div key={p.label} className="bg-[#141416] rounded-xl p-2.5 text-center border border-white/5">
+                    <div className={`text-lg font-semibold ${p.count ? 'text-white' : 'text-[#8b8b93]'}`}>{p.count || 0}</div>
+                    <div className="text-[9px] text-[#8b8b93] uppercase tracking-wider">{p.label}</div>
                   </div>
                 ))}
               </div>
