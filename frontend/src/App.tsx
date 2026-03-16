@@ -1047,7 +1047,7 @@ export default function App() {
                       <div className="mb-2">
                         <p className="text-[10px] uppercase tracking-wider text-[#8b8b93] font-semibold px-3 py-1.5">Signals</p>
                         {searchResults.signals.map(s => (
-                          <div key={s.id} onClick={() => { setSelectedAccountId(s.account_id); setActiveTab('companyDetail'); setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}
+                          <div key={s.id} onClick={() => { if (s.account_id) { setSelectedAccountId(s.account_id); setActiveTab('companyDetail'); } setShowSearch(false); setSearchQuery(''); setSearchResults(null); }}
                             className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[#202022] cursor-pointer transition-colors">
                             <div className="flex items-center gap-2">
                               <TrendingUp size={14} className="text-[#8b8b93]" />

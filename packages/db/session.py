@@ -49,6 +49,14 @@ def _add_missing_columns(conn):
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
             logger.info(f"Added missing column {table}.{column}")
 
+    # Make signals.account_id nullable (was NOT NULL, now allows unmatched signals)
+    if "signals" in existing_tables:
+        try:
+            conn.execute(text("ALTER TABLE signals ALTER COLUMN account_id DROP NOT NULL"))
+            logger.info("Made signals.account_id nullable")
+        except Exception:
+            pass  # Already nullable or SQLite (which doesn't support ALTER COLUMN)
+
 
 async def init_db():
     async with engine.begin() as conn:

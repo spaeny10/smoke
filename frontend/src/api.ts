@@ -110,7 +110,7 @@ export interface Project {
 
 export interface Signal {
   id: string;
-  account_id: string;
+  account_id: string | null;
   source: string;
   signal_type: string;
   heat: string;

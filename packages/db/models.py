@@ -137,7 +137,7 @@ class Project(Base):
 class Signal(Base):
     __tablename__ = 'signals'
     id = Column(String, primary_key=True, default=generate_uuid)
-    account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
+    account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'), nullable=True)
     source = Column(String, nullable=False)
     signal_type = Column(String, nullable=False)
     heat = Column(String, default='cool')

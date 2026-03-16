@@ -140,7 +140,63 @@ async def fetch_fema_data():
         for record in records:
             disaster_state = record.get("state", "")
             target_accounts = state_accounts.get(disaster_state, [])
+
+            # Build signal details (shared across matched + unmatched)
+            incident = (record.get("incident_type") or "").lower()
+            dec_type = record.get("declaration_type", "")
+
+            if dec_type == "DR":
+                pts = 25
+                heat = "hot"
+            else:
+                pts = 15
+                heat = "warm"
+
+            if incident in ("hurricane", "tornado", "earthquake"):
+                pts += 15
+                title = f"Major Disaster: {record.get('title', 'Unknown')} — Construction Demand Expected"
+            elif incident in ("flood", "severe storm", "fire"):
+                pts += 10
+                title = f"Disaster Declaration: {record.get('title', 'Unknown')} — Rebuild Opportunity"
+            else:
+                title = f"FEMA Disaster: {record.get('title', 'Unknown')}"
+
+            state_name = STATE_NAMES.get(disaster_state, disaster_state)
+            area = record.get("designated_area", "")
+            detail = (
+                f"FEMA Disaster #{record.get('disaster_number', '')} — {record.get('incident_type', 'Unknown')} | "
+                f"{state_name}" + (f", {area}" if area else "") +
+                f" | Declared: {record.get('declaration_date', '')[:10]}"
+            )
+
+            source_date = None
+            try:
+                dd = record.get("declaration_date", "")
+                if dd:
+                    source_date = datetime.fromisoformat(dd.replace("Z", "+00:00").replace(".000Z", "+00:00"))
+            except (ValueError, TypeError):
+                pass
+
             if not target_accounts:
+                # No accounts in this state — save unmatched signal for manual review
+                ext_id = f"{record['id']}_unmatched"
+                dup_check = await db.execute(select(Signal).where(Signal.external_id == ext_id))
+                if not dup_check.scalars().first():
+                    db.add(Signal(
+                        account_id=None,
+                        source="fema",
+                        signal_type="disaster_declaration",
+                        heat=heat,
+                        title=title,
+                        detail=detail,
+                        raw_data=record,
+                        score_contribution=pts,
+                        external_id=ext_id,
+                        project_name=record.get("title", "")[:100],
+                        location_state=disaster_state,
+                        source_date=source_date,
+                    ))
+                    records_scored += 1
                 continue
 
             for acct in target_accounts:
@@ -165,43 +221,6 @@ async def fetch_fema_data():
                     continue
 
                 records_matched += 1
-
-                # Score based on disaster type and severity
-                incident = (record.get("incident_type") or "").lower()
-                dec_type = record.get("declaration_type", "")
-
-                if dec_type == "DR":
-                    pts = 25
-                    heat = "hot"
-                else:
-                    pts = 15
-                    heat = "warm"
-
-                # Certain disaster types = higher construction demand
-                if incident in ("hurricane", "tornado", "earthquake"):
-                    pts += 15
-                    title = f"Major Disaster: {record.get('title', 'Unknown')} — Construction Demand Expected"
-                elif incident in ("flood", "severe storm", "fire"):
-                    pts += 10
-                    title = f"Disaster Declaration: {record.get('title', 'Unknown')} — Rebuild Opportunity"
-                else:
-                    title = f"FEMA Disaster: {record.get('title', 'Unknown')}"
-
-                state_name = STATE_NAMES.get(disaster_state, disaster_state)
-                area = record.get("designated_area", "")
-                detail = (
-                    f"FEMA Disaster #{record.get('disaster_number', '')} — {record.get('incident_type', 'Unknown')} | "
-                    f"{state_name}" + (f", {area}" if area else "") +
-                    f" | Declared: {record.get('declaration_date', '')[:10]}"
-                )
-
-                source_date = None
-                try:
-                    dd = record.get("declaration_date", "")
-                    if dd:
-                        source_date = datetime.fromisoformat(dd.replace("Z", "+00:00").replace(".000Z", "+00:00"))
-                except (ValueError, TypeError):
-                    pass
 
                 new_signal = Signal(
                     account_id=acct["id"],

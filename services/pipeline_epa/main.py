@@ -171,7 +171,7 @@ async def fetch_epa_data():
             company_name = record["operator_name"]
             norm_name = normalize_company_name(company_name)
 
-            # Match to existing account
+            # Best-effort match to existing account
             matched_id = existing_aliases.get(norm_name)
             if not matched_id and norm_name in existing_accounts:
                 matched_id = existing_accounts[norm_name]
@@ -179,12 +179,10 @@ async def fetch_epa_data():
             if not matched_id:
                 matched_id, score, match_category = fuzzy_match_company(norm_name, existing_accounts)
                 if match_category in ['manual_review', 'no_match']:
-                    continue
+                    matched_id = None  # Save signal unmatched for manual review
 
-            if not matched_id:
-                continue
-
-            records_matched += 1
+            if matched_id:
+                records_matched += 1
 
             # Dedup
             dup_check = await db.execute(
@@ -193,17 +191,18 @@ async def fetch_epa_data():
             if dup_check.scalars().first():
                 continue
 
-            # Gate check
-            acct_info = account_details.get(str(matched_id), {})
-            if not signal_passes_gates(
-                gates,
-                location_state=record.get("state"),
-                source="epa",
-                account_segment=acct_info.get("segment"),
-                account_employee_count=acct_info.get("employee_count"),
-            ):
-                records_gated += 1
-                continue
+            # Gate check (skip for unmatched signals — let user decide)
+            if matched_id:
+                acct_info = account_details.get(str(matched_id), {})
+                if not signal_passes_gates(
+                    gates,
+                    location_state=record.get("state"),
+                    source="epa",
+                    account_segment=acct_info.get("segment"),
+                    account_employee_count=acct_info.get("employee_count"),
+                ):
+                    records_gated += 1
+                    continue
 
             # Score based on activity type
             activity = record.get("activity_type", "")

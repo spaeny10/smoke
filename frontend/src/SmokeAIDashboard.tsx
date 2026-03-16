@@ -156,17 +156,21 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
     setActivityNote('');
     setActivityChannel('note');
 
-    Promise.all([
-      accountsApi.get(signal.account_id),
-      accountsApi.getContacts(signal.account_id),
-    ]).then(([acctRes, contactsRes]) => {
-      setTriageAccount(acctRes.data);
-      setTriageContacts(contactsRes.data);
-      // Pre-fill project form
-      setProjectName(signal.project_name || signal.title);
-      setProjectValue(signal.project_value ? String(signal.project_value) : '');
-    }).catch(() => {})
-      .finally(() => setTriageLoading(false));
+    if (signal.account_id) {
+      Promise.all([
+        accountsApi.get(signal.account_id),
+        accountsApi.getContacts(signal.account_id),
+      ]).then(([acctRes, contactsRes]) => {
+        setTriageAccount(acctRes.data);
+        setTriageContacts(contactsRes.data);
+      }).catch(() => {})
+        .finally(() => setTriageLoading(false));
+    } else {
+      setTriageLoading(false);
+    }
+    // Pre-fill project form
+    setProjectName(signal.project_name || signal.title);
+    setProjectValue(signal.project_value ? String(signal.project_value) : '');
   };
 
   const showFeedback = (msg: string) => {
@@ -409,10 +413,10 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                       </td>
                       <td className="py-2 px-2">
                         <span
-                          className="text-indigo-400 font-medium hover:underline truncate block max-w-[140px]"
-                          onClick={(e) => { e.stopPropagation(); onAccountClick?.(signal.account_id); }}
+                          className={`font-medium truncate block max-w-[140px] ${signal.account_id ? 'text-indigo-400 hover:underline cursor-pointer' : 'text-orange-400'}`}
+                          onClick={(e) => { e.stopPropagation(); if (signal.account_id) onAccountClick?.(signal.account_id); }}
                         >
-                          {signal.account_name || '—'}
+                          {signal.account_name || 'Unmatched'}
                         </span>
                       </td>
                       <td className="py-2 px-2 text-[#e2e2e5] max-w-[200px] truncate">{signal.title}</td>
@@ -462,14 +466,12 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      {signal.account_name && (
-                        <span
-                          className="text-xs text-indigo-400 font-semibold hover:underline shrink-0"
-                          onClick={(e) => { e.stopPropagation(); onAccountClick?.(signal.account_id); }}
-                        >
-                          {signal.account_name}
-                        </span>
-                      )}
+                      <span
+                        className={`text-xs font-semibold shrink-0 ${signal.account_id ? 'text-indigo-400 hover:underline cursor-pointer' : 'text-orange-400'}`}
+                        onClick={(e) => { e.stopPropagation(); if (signal.account_id) onAccountClick?.(signal.account_id); }}
+                      >
+                        {signal.account_name || 'Unmatched'}
+                      </span>
                       <span className="text-xs text-white truncate">{signal.title}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#8b8b93]">
@@ -550,14 +552,12 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                       </div>
                       <div className="min-w-0">
                         <span className="text-[10px] font-semibold text-[#8b8b93] tracking-wider uppercase">{signal.source}</span>
-                        {signal.account_name && (
-                          <p
-                            className="text-sm text-indigo-400 font-semibold truncate hover:underline"
-                            onClick={(e) => { e.stopPropagation(); onAccountClick?.(signal.account_id); }}
-                          >
-                            {signal.account_name}
-                          </p>
-                        )}
+                        <p
+                          className={`text-sm font-semibold truncate ${signal.account_id ? 'text-indigo-400 hover:underline cursor-pointer' : 'text-orange-400'}`}
+                          onClick={(e) => { e.stopPropagation(); if (signal.account_id) onAccountClick?.(signal.account_id); }}
+                        >
+                          {signal.account_name || 'Unmatched'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">

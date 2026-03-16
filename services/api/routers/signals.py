@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 
 from packages.db.session import get_db
@@ -39,8 +39,9 @@ async def list_signals(
 
         visible_ids = await get_visible_account_ids(current_user, view, db)
         if visible_ids is not None:
-            query = query.where(Signal.account_id.in_(visible_ids))
-            count_query = count_query.where(Signal.account_id.in_(visible_ids))
+            # Include unmatched signals (account_id IS NULL) so users can triage them
+            query = query.where(or_(Signal.account_id.in_(visible_ids), Signal.account_id.is_(None)))
+            count_query = count_query.where(or_(Signal.account_id.in_(visible_ids), Signal.account_id.is_(None)))
 
     if account_id:
         query = query.where(Signal.account_id == account_id)
@@ -108,11 +109,12 @@ async def update_signal_status(
 
 @router.post("", response_model=SignalRead, status_code=201)
 async def create_signal(data: SignalCreate, db: AsyncSession = Depends(get_db)):
-    account = await db.scalar(
-        select(Account).where(Account.id == data.account_id)
-    )
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
+    if data.account_id:
+        account = await db.scalar(
+            select(Account).where(Account.id == data.account_id)
+        )
+        if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
     signal = Signal(
         account_id=data.account_id,
         source=data.source,

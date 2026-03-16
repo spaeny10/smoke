@@ -147,7 +147,7 @@ async def fetch_sec_data():
             company_name = record["company_name"]
             norm_name = normalize_company_name(company_name)
 
-            # Match to existing account
+            # Best-effort match to existing account
             matched_id = existing_aliases.get(norm_name)
             if not matched_id and norm_name in existing_accounts:
                 matched_id = existing_accounts[norm_name]
@@ -155,13 +155,10 @@ async def fetch_sec_data():
             if not matched_id:
                 matched_id, score, match_category = fuzzy_match_company(norm_name, existing_accounts)
                 if match_category in ['manual_review', 'no_match']:
-                    # Don't auto-create accounts from SEC data — too noisy
-                    continue
+                    matched_id = None  # Save signal unmatched for manual review
 
-            if not matched_id:
-                continue
-
-            records_matched += 1
+            if matched_id:
+                records_matched += 1
 
             # Dedup
             dup_check = await db.execute(
@@ -170,16 +167,17 @@ async def fetch_sec_data():
             if dup_check.scalars().first():
                 continue
 
-            # Gate check
-            acct_info = account_details.get(str(matched_id), {})
-            if not signal_passes_gates(
-                gates,
-                source="sec",
-                account_segment=acct_info.get("segment"),
-                account_employee_count=acct_info.get("employee_count"),
-            ):
-                records_gated += 1
-                continue
+            # Gate check (skip for unmatched signals — let user decide)
+            if matched_id:
+                acct_info = account_details.get(str(matched_id), {})
+                if not signal_passes_gates(
+                    gates,
+                    source="sec",
+                    account_segment=acct_info.get("segment"),
+                    account_employee_count=acct_info.get("employee_count"),
+                ):
+                    records_gated += 1
+                    continue
 
             # Score based on form type
             form = record.get("form_type", "")

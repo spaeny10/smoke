@@ -158,7 +158,65 @@ async def fetch_sam_data():
             # Match to accounts in the same state as the opportunity
             opp_state = record.get("state", "")
             target_accounts = state_accounts.get(opp_state, [])
+
+            # Build signal details (shared across matched + unmatched)
+            opp_type = (record.get("type") or "").lower()
+            org = (record.get("organization") or "").lower()
+
+            if "solicitation" in opp_type or opp_type == "o":
+                pts = 30
+                heat = "hot"
+                title = "Federal Construction Solicitation"
+            elif "presolicitation" in opp_type or opp_type == "p":
+                pts = 20
+                heat = "warm"
+                title = "Upcoming Federal Construction Opportunity"
+            else:
+                pts = 15
+                heat = "warm"
+                title = "Federal Construction Opportunity"
+
+            if "defense" in org or "army" in org or "navy" in org or "air force" in org:
+                pts += 10
+            elif "transportation" in org or "highway" in org:
+                pts += 5
+
+            deadline = record.get("response_deadline", "")
+            deadline_str = f" | Deadline: {deadline}" if deadline else ""
+            place = f"{record.get('city', '')}, {opp_state}".strip(", ")
+            detail = (
+                f"{record.get('description', '')[:200]} | "
+                f"Agency: {record.get('organization', 'Unknown')}"
+                f"{deadline_str}"
+                + (f" | {place}" if place else "")
+            )
+
+            source_date = None
+            try:
+                pd_str = record.get("posted_date", "")
+                if pd_str:
+                    source_date = datetime.strptime(pd_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                pass
+
             if not target_accounts:
+                # No accounts in this state — save unmatched signal for manual review
+                db.add(Signal(
+                    account_id=None,
+                    source="sam",
+                    signal_type="solicitation",
+                    heat=heat,
+                    title=title,
+                    detail=detail,
+                    raw_data=record,
+                    score_contribution=pts,
+                    external_id=record["id"],
+                    project_name=record.get("title", "")[:100],
+                    location_city=record.get("city"),
+                    location_state=opp_state,
+                    source_date=source_date,
+                ))
+                records_scored += 1
                 continue
 
             for acct_id in target_accounts:
@@ -176,47 +234,6 @@ async def fetch_sam_data():
                     continue
 
                 records_matched += 1
-
-                # Score based on opportunity type
-                opp_type = (record.get("type") or "").lower()
-                org = (record.get("organization") or "").lower()
-
-                if "solicitation" in opp_type or opp_type == "o":
-                    pts = 30
-                    heat = "hot"
-                    title = "Federal Construction Solicitation"
-                elif "presolicitation" in opp_type or opp_type == "p":
-                    pts = 20
-                    heat = "warm"
-                    title = "Upcoming Federal Construction Opportunity"
-                else:
-                    pts = 15
-                    heat = "warm"
-                    title = "Federal Construction Opportunity"
-
-                # Agency bonus
-                if "defense" in org or "army" in org or "navy" in org or "air force" in org:
-                    pts += 10
-                elif "transportation" in org or "highway" in org:
-                    pts += 5
-
-                deadline = record.get("response_deadline", "")
-                deadline_str = f" | Deadline: {deadline}" if deadline else ""
-                place = f"{record.get('city', '')}, {opp_state}".strip(", ")
-                detail = (
-                    f"{record.get('description', '')[:200]} | "
-                    f"Agency: {record.get('organization', 'Unknown')}"
-                    f"{deadline_str}"
-                    + (f" | {place}" if place else "")
-                )
-
-                source_date = None
-                try:
-                    pd_str = record.get("posted_date", "")
-                    if pd_str:
-                        source_date = datetime.strptime(pd_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                except (ValueError, TypeError):
-                    pass
 
                 new_signal = Signal(
                     account_id=acct_id,

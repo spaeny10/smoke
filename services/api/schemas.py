@@ -198,7 +198,7 @@ class ProjectRead(BaseModel):
 # ── Signal ───────────────────────────────────────────────
 
 class SignalCreate(BaseModel):
-    account_id: str
+    account_id: Optional[str] = None
     source: str
     signal_type: str
     heat: Optional[str] = "cool"
@@ -213,7 +213,7 @@ class SignalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    account_id: str
+    account_id: Optional[str] = None
     source: str
     signal_type: str
     heat: str
