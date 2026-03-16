@@ -43,6 +43,8 @@ class AccountUpdate(BaseModel):
     score_trend: Optional[str] = None
     assigned_rep_id: Optional[str] = None
     next_step_text: Optional[str] = None
+    next_step_due: Optional[datetime] = None
+    next_step_assignee_id: Optional[str] = None
 
 
 class AccountRead(BaseModel):
@@ -64,6 +66,9 @@ class AccountRead(BaseModel):
     score_trend: str
     deal_stage: str
     assigned_rep_id: Optional[str] = None
+    next_step_text: Optional[str] = None
+    next_step_due: Optional[datetime] = None
+    next_step_assignee_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -164,6 +169,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     primary_contact_id: Optional[str] = None
+    signal_id: Optional[str] = None
     location_id: Optional[str] = None
     stage: Optional[str] = None
     estimated_value: Optional[float] = None
@@ -186,6 +192,7 @@ class ProjectRead(BaseModel):
     updated_at: datetime
     account_name: Optional[str] = None
     location_label: Optional[str] = None
+    primary_contact_name: Optional[str] = None
 
 
 # ── Signal ───────────────────────────────────────────────

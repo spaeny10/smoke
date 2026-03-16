@@ -465,6 +465,16 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                       </div>
                       {sig.detail && <p className="text-sm text-[#8b8b93] leading-relaxed mb-3">{sig.detail}</p>}
                       <div className="flex items-center gap-3 flex-wrap text-xs mb-4">
+                        {sig.signal_type && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase">{sig.signal_type}</span>
+                        )}
+                        {sig.status && sig.status !== 'new' && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            sig.status === 'actioned' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                            sig.status === 'viewed' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                            'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                          }`}>{sig.status}</span>
+                        )}
                         {sig.location_city && (
                           <span className="text-[#8b8b93]">{sig.location_city}{sig.location_state ? `, ${sig.location_state}` : ''}</span>
                         )}
@@ -729,7 +739,10 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                         <div className="text-sm text-[#8b8b93] flex items-center gap-2">
                           <span className="w-16">Email:</span>
                           {c.email ? (
-                            <span className="text-[#e2e2e5]">{c.email}</span>
+                            <span className="text-[#e2e2e5] flex items-center gap-1.5">
+                              {c.email}
+                              {c.email_verified && <span className="text-[9px] bg-green-500/10 text-green-400 px-1 py-0.5 rounded font-medium">Verified</span>}
+                            </span>
                           ) : (
                             <button
                               onClick={() => {
@@ -748,6 +761,14 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                           )}
                         </div>
                         <p className="text-sm text-[#8b8b93] flex items-center gap-2"><span className="w-16">Phone:</span> {c.phone || '-'}</p>
+                        {c.linkedin_url && (
+                          <div className="text-sm text-[#8b8b93] flex items-center gap-2">
+                            <span className="w-16">LinkedIn:</span>
+                            <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 truncate transition-colors flex items-center gap-1">
+                              Profile <ExternalLink size={10} />
+                            </a>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 pt-4 border-t border-white/5">
@@ -1035,13 +1056,37 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           <PropertyRow label="Stage" value={account.deal_stage} icon="📊" />
           <PropertyRow label="Segment" value={account.segment || '-'} icon="🏗️" />
           <PropertyRow label="Region" value={account.region || '-'} icon="🌎" />
-          <PropertyRow label="Website" value={account.website || '-'} icon="🌐" />
+          <div className="flex justify-between items-center text-sm">
+            <div className="flex items-center gap-2 text-[#8b8b93]">
+              <span className="opacity-70 text-xs">🌐</span>
+              <span>Website</span>
+            </div>
+            {account.website ? (
+              <a href={account.website.startsWith('http') ? account.website : `https://${account.website}`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 font-medium max-w-[50%] text-right truncate transition-colors flex items-center gap-1">
+                {account.website.replace(/^https?:\/\//, '')} <ExternalLink size={10} />
+              </a>
+            ) : (
+              <span className="text-white font-medium">-</span>
+            )}
+          </div>
           <PropertyRow label="Employees" value={account.employee_count ? account.employee_count.toLocaleString() : '-'} icon="👥" />
           <PropertyRow label="Score Trend" value={account.score_trend} icon="📈" />
+          {account.hq_address && <PropertyRow label="Address" value={account.hq_address} icon="🏠" />}
           <PropertyRow label="City" value={account.hq_city || '-'} icon="📍" />
           <PropertyRow label="State" value={account.hq_state || '-'} icon="🗺️" />
+          {account.hq_zip && <PropertyRow label="ZIP" value={account.hq_zip} icon="📮" />}
           <PropertyRow label="Contacts" value={String(contacts.length)} icon="👤" />
           <PropertyRow label="Signals" value={String(signals.length)} icon="📡" />
+          {account.next_step_text && (
+            <>
+              <div className="pt-3 border-t border-white/5">
+                <PropertyRow label="Next Step" value={account.next_step_text} icon="📋" />
+              </div>
+              {account.next_step_due && (
+                <PropertyRow label="Due" value={new Date(account.next_step_due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} icon="📅" />
+              )}
+            </>
+          )}
         </div>
 
         {/* Locations Section */}

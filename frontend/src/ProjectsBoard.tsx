@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Calendar, AlertCircle, X, Loader2 } from 'lucide-react';
+import { Building2, Calendar, AlertCircle, X, Loader2, MapPin } from 'lucide-react';
 import { useProjects } from './ProjectsContext';
 import { projectsApi, accountsApi, type Account } from './api';
 
@@ -140,10 +140,17 @@ export default function ProjectsBoard({ onProjectClick }: ProjectsBoardProps = {
                     
                     <h4 className="text-sm font-medium text-white mb-1">{project.name}</h4>
                     
-                    <div className="flex items-center gap-1.5 text-xs text-[#8b8b93] mb-3">
+                    <div className="flex items-center gap-1.5 text-xs text-[#8b8b93] mb-1">
                       <Building2 size={12} />
                       <span className="truncate">{project.accountName}</span>
                     </div>
+                    {project.locationLabel && (
+                      <div className="flex items-center gap-1.5 text-xs text-orange-400/70 mb-3">
+                        <MapPin size={11} />
+                        <span className="truncate">{project.locationLabel}</span>
+                      </div>
+                    )}
+                    {!project.locationLabel && <div className="mb-3" />}
                     
                     <div className="flex justify-between items-center text-xs text-[#8b8b93] pt-3 border-t border-white/5">
                       <div className="flex items-center gap-1">

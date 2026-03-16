@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Project, Account, AccountLocation
+from packages.db.models import Project, Account, AccountLocation, Contact
 from services.api.schemas import (
     ProjectCreate, ProjectUpdate, ProjectRead, PaginatedResponse,
 )
@@ -57,12 +57,23 @@ async def list_projects(
         )
         loc_labels = {str(row.id): row.label for row in loc_result.all()}
 
+    # Batch-fetch primary contact names
+    contact_ids = list({p.primary_contact_id for p in projects if p.primary_contact_id})
+    contact_names: dict[str, str] = {}
+    if contact_ids:
+        contact_result = await db.execute(
+            select(Contact.id, Contact.name).where(Contact.id.in_(contact_ids))
+        )
+        contact_names = {str(row.id): row.name for row in contact_result.all()}
+
     items = []
     for p in projects:
         read = ProjectRead.model_validate(p)
         read.account_name = acct_names.get(p.account_id)
         if p.location_id:
             read.location_label = loc_labels.get(p.location_id)
+        if p.primary_contact_id:
+            read.primary_contact_name = contact_names.get(p.primary_contact_id)
         items.append(read)
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
@@ -84,6 +95,10 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
         loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
         if loc:
             read.location_label = loc.label
+    if project.primary_contact_id:
+        contact = await db.scalar(select(Contact).where(Contact.id == project.primary_contact_id))
+        if contact:
+            read.primary_contact_name = contact.name
     return read
 
 
@@ -114,6 +129,10 @@ async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)
         loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
         if loc:
             read.location_label = loc.label
+    if project.primary_contact_id:
+        contact = await db.scalar(select(Contact).where(Contact.id == project.primary_contact_id))
+        if contact:
+            read.primary_contact_name = contact.name
     return read
 
 
@@ -140,6 +159,10 @@ async def update_project(
         loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
         if loc:
             read.location_label = loc.label
+    if project.primary_contact_id:
+        contact = await db.scalar(select(Contact).where(Contact.id == project.primary_contact_id))
+        if contact:
+            read.primary_contact_name = contact.name
     return read
 
 

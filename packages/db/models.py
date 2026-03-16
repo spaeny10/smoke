@@ -49,7 +49,6 @@ class Account(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     name = Column(String, nullable=False)
     name_normalized = Column(String, nullable=False)
-    aliases = Column(JSON, default=list) # SQLite JSON for array
     hq_address = Column(String)
     hq_city = Column(String)
     hq_state = Column(String)

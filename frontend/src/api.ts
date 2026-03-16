@@ -53,6 +53,9 @@ export interface Account {
   score_trend: string;
   deal_stage: string;
   assigned_rep_id: string | null;
+  next_step_text: string | null;
+  next_step_due: string | null;
+  next_step_assignee_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +105,7 @@ export interface Project {
   updated_at: string;
   account_name: string | null;
   location_label: string | null;
+  primary_contact_name: string | null;
 }
 
 export interface Signal {

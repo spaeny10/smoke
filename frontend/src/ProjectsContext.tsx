@@ -10,6 +10,8 @@ export interface Project {
   dueDate?: string;
   stage: string;
   signalId?: string;
+  locationLabel?: string;
+  primaryContactName?: string;
 }
 
 function apiToLocal(p: ApiProject): Project {
@@ -21,6 +23,8 @@ function apiToLocal(p: ApiProject): Project {
     origin: p.origin,
     stage: p.stage,
     signalId: p.signal_id || undefined,
+    locationLabel: p.location_label || undefined,
+    primaryContactName: p.primary_contact_name || undefined,
   };
 }
 

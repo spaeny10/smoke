@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, RefreshCw, Download, Filter, Mail, Phone, Building2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Search, RefreshCw, Download, Filter, Mail, Phone, Building2, ChevronDown, ChevronUp, Loader2, MapPin } from 'lucide-react';
 import { contactsApi, type Contact } from './api';
 
 function getRoleBadge(category: string | null) {
@@ -110,8 +110,9 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
       <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-white/5 text-xs font-medium text-[#8b8b93] uppercase tracking-wider">
         <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Name</div>
         <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Company</div>
-        <div className="col-span-3 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Contact Info</div>
-        <div className="col-span-2 flex items-center justify-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Role</div>
+        <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Contact Info</div>
+        <div className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Location</div>
+        <div className="col-span-1 flex items-center justify-center gap-1 cursor-pointer hover:text-[#e2e2e5]">Role</div>
         <div
           className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-[#e2e2e5] group/sort"
           onClick={() => setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')}
@@ -166,7 +167,7 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
                   <span className="text-[#e2e2e5] group-hover/company:text-indigo-400 text-sm truncate transition-colors hover:underline">{contact.account_name || 'Unknown'}</span>
                 </div>
 
-                <div className="hidden md:flex md:col-span-3 flex-col justify-center space-y-1">
+                <div className="hidden md:flex md:col-span-2 flex-col justify-center space-y-1">
                   {contact.email && (
                     <div className="flex items-center gap-2 text-sm text-[#8b8b93] truncate hover:text-[#e2e2e5] transition-colors">
                       <Mail size={12} className="shrink-0" />
@@ -181,9 +182,20 @@ export default function ContactsList({ onContactClick, onCompanyClick }: { onCon
                   )}
                 </div>
 
-                <div className="hidden md:flex md:col-span-2 justify-center items-center">
+                <div className="hidden md:flex md:col-span-2 items-center gap-1.5 text-sm text-[#8b8b93]">
+                  {contact.location_label ? (
+                    <>
+                      <MapPin size={12} className="shrink-0 text-orange-400" />
+                      <span className="truncate">{contact.location_label}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs">-</span>
+                  )}
+                </div>
+
+                <div className="hidden md:flex md:col-span-1 justify-center items-center">
                   {contact.role_category ? (
-                    <div className={`px-2.5 py-1 ${badge.bg} ${badge.color} rounded-md text-[10px] uppercase font-bold tracking-wider border border-white/5`}>
+                    <div className={`px-2 py-1 ${badge.bg} ${badge.color} rounded-md text-[10px] uppercase font-bold tracking-wider border border-white/5`}>
                       {contact.role_category}
                     </div>
                   ) : (
