@@ -275,9 +275,14 @@ async def fetch_news_data():
                     pass
 
                 src_name = record.get("source_name", "Google News")
-                detail = f"{record['title']} — via {src_name}"
+                article_title = record.get("title", "")
+                detail_parts = [article_title]
+                detail_parts.append(f"Source: {src_name}")
                 if project_value:
-                    detail += f" | Est. Value: ${project_value / 1_000_000:.1f}M"
+                    detail_parts.append(f"Est. Value: ${project_value / 1_000_000:.1f}M")
+                detail = " | ".join(detail_parts)
+
+                source_url = record.get("url") or None
 
                 new_signal = Signal(
                     account_id=matched_id,
@@ -290,6 +295,7 @@ async def fetch_news_data():
                     score_contribution=pts,
                     external_id=record["id"],
                     project_value=project_value,
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)

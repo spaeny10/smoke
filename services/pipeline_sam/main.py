@@ -182,15 +182,26 @@ async def fetch_sam_data():
             elif "transportation" in org or "highway" in org:
                 pts += 5
 
+            notice_id = record.get("notice_id", "")
             deadline = record.get("response_deadline", "")
-            deadline_str = f" | Deadline: {deadline}" if deadline else ""
             place = f"{record.get('city', '')}, {opp_state}".strip(", ")
-            detail = (
-                f"{record.get('description', '')[:200]} | "
-                f"Agency: {record.get('organization', 'Unknown')}"
-                f"{deadline_str}"
-                + (f" | {place}" if place else "")
-            )
+            agency = record.get("organization", "Unknown")
+
+            detail_parts = []
+            desc = (record.get("description") or "")[:250]
+            if desc:
+                detail_parts.append(desc)
+            detail_parts.append(f"Agency: {agency}")
+            if deadline:
+                detail_parts.append(f"Response Deadline: {deadline}")
+            if place:
+                detail_parts.append(place)
+            if record.get("set_aside"):
+                detail_parts.append(f"Set-Aside: {record['set_aside']}")
+            detail = " | ".join(detail_parts)
+
+            # SAM.gov opportunity page
+            source_url = f"https://sam.gov/opp/{notice_id}/view" if notice_id else None
 
             source_date = None
             try:
@@ -215,6 +226,7 @@ async def fetch_sam_data():
                     project_name=record.get("title", "")[:100],
                     location_city=record.get("city"),
                     location_state=opp_state,
+                    source_url=source_url,
                     source_date=source_date,
                 ))
                 records_scored += 1
@@ -249,6 +261,7 @@ async def fetch_sam_data():
                     project_name=record.get("title", "")[:100],
                     location_city=record.get("city"),
                     location_state=opp_state,
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)

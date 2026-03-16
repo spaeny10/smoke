@@ -39,6 +39,7 @@ def _add_missing_columns(conn):
         ("accounts", "next_step_assignee_id", "VARCHAR"),
         ("accounts", "hq_address", "VARCHAR"),
         ("accounts", "hq_zip", "VARCHAR"),
+        ("signals", "source_url", "VARCHAR"),
     ]
 
     for table, column, col_type in migrations:

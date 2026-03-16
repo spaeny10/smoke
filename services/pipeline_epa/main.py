@@ -219,15 +219,26 @@ async def fetch_epa_data():
                 title = f"EPA Permit: {facility} — {permit_type}"
 
             place = f"{record.get('city', '')}, {record.get('state', '')}".strip(", ")
-            detail = (
-                f"Facility: {facility} | {permit_type} | "
-                f"Status: {record.get('compliance_status', 'Unknown')}"
-                + (f" | {place}" if place else "")
-            )
+            reg_id = record.get("registry_id", "")
+            sic = record.get("sic_code", "")
+            compliance = record.get("compliance_status", "Unknown")
+
+            detail_parts = [f"Facility: {facility}", f"Program: {permit_type}", f"Status: {compliance}"]
+            if sic:
+                detail_parts.append(f"SIC: {sic}")
+            if place:
+                detail_parts.append(place)
+            insp = record.get("last_inspection_date", "")
+            if insp:
+                detail_parts.append(f"Last Inspection: {insp}")
+            detail_parts.append(f"Operator: {company_name}")
+            detail = " | ".join(detail_parts)
+
+            # EPA ECHO facility detail page
+            source_url = f"https://echo.epa.gov/detailed-facility-report?fid={reg_id}" if reg_id else None
 
             source_date = None
             try:
-                insp = record.get("last_inspection_date", "")
                 if insp and "/" in insp:
                     source_date = datetime.strptime(insp, "%m/%d/%Y").replace(tzinfo=timezone.utc)
                 elif insp and "-" in insp:
@@ -248,6 +259,7 @@ async def fetch_epa_data():
                 project_name=record.get("facility_name", "")[:100],
                 location_city=record.get("city"),
                 location_state=record.get("state"),
+                source_url=source_url,
                 source_date=source_date,
             )
             db.add(new_signal)

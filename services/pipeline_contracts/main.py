@@ -269,8 +269,26 @@ async def fetch_contract_data():
                     pass
 
                 agency = record.get("awarding_agency", "Unknown")
+                award_id = record.get("award_id", "")
+                contractor = record.get("contractor_name", "")
                 place = f"{record.get('place_city', '')}, {record.get('place_state', '')}".strip(", ")
-                detail = f"{record.get('description', '')[:200]} | {amount_str} | Agency: {agency}" + (f" | {place}" if place else "")
+
+                detail_parts = []
+                desc = (record.get("description") or "")[:250]
+                if desc:
+                    detail_parts.append(desc)
+                detail_parts.append(f"Award: {amount_str}")
+                detail_parts.append(f"Agency: {agency}")
+                if contractor:
+                    detail_parts.append(f"Contractor: {contractor}")
+                if place:
+                    detail_parts.append(place)
+                if record.get("naics_code"):
+                    detail_parts.append(f"NAICS: {record['naics_code']}")
+                detail = " | ".join(detail_parts)
+
+                # USASpending award page
+                source_url = f"https://www.usaspending.gov/search/?hash=&filters=keyword_{award_id}" if award_id else None
 
                 new_signal = Signal(
                     account_id=matched_id,
@@ -286,6 +304,7 @@ async def fetch_contract_data():
                     project_value=amount,
                     location_city=record.get("place_city"),
                     location_state=record.get("place_state"),
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)

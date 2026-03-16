@@ -182,7 +182,16 @@ async def fetch_procore_data():
 
                 loc = record.get("location", "")
                 value_str = f"${record['estimated_value']:,.0f}"
-                detail = f"Project: {record['project_name']} | {loc} | Est. Value: {value_str}"
+                proj_name = record.get("project_name", "")
+                company = record.get("company_name", "")
+
+                detail_parts = [f"Project: {proj_name}"]
+                if company:
+                    detail_parts.append(f"Company: {company}")
+                detail_parts.append(f"Est. Value: {value_str}")
+                if loc:
+                    detail_parts.append(loc)
+                detail = " | ".join(detail_parts)
 
                 new_signal = Signal(
                     account_id=matched_id,

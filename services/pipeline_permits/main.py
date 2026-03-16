@@ -347,8 +347,27 @@ async def fetch_permit_data():
                     pass
 
                 address = record.get("address", "")
-                permit_type = record.get("permit_type", "")
-                detail = f"{permit_type}: {record.get('work_description', '')[:200]} | {address}, {record['city']}, {record['state']} | Value: {value_str}"
+                permit_type_raw = record.get("permit_type", "")
+                work_desc = (record.get("work_description") or "")[:250]
+                city = record.get("city", "")
+                state = record.get("state", "")
+                owner = record.get("owner_name", "")
+
+                detail_parts = []
+                if work_desc:
+                    detail_parts.append(work_desc)
+                detail_parts.append(f"Permit Type: {permit_type_raw}")
+                detail_parts.append(f"Value: {value_str}")
+                if address:
+                    detail_parts.append(f"Address: {address}, {city}, {state}")
+                elif city:
+                    detail_parts.append(f"{city}, {state}")
+                if owner:
+                    detail_parts.append(f"Owner: {owner}")
+                detail = " | ".join(detail_parts)
+
+                # No universal permit URL — varies by municipality
+                source_url = None
 
                 new_signal = Signal(
                     account_id=matched_id,
@@ -362,8 +381,9 @@ async def fetch_permit_data():
                     external_id=record["id"],
                     project_name=record.get("work_description", "")[:100],
                     project_value=record["estimated_value"],
-                    location_city=record["city"],
-                    location_state=record["state"],
+                    location_city=city,
+                    location_state=state,
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)

@@ -153,6 +153,7 @@ class Signal(Base):
     location_state = Column(String)
     embedding = Column(JSON) # Mocking vector as JSON array
     detected_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    source_url = Column(String)
     source_date = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

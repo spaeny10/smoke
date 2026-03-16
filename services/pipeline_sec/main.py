@@ -194,16 +194,32 @@ async def fetch_sec_data():
                 heat = "warm"
                 title = f"SEC {form}: {company_name} — Construction/Capex Mention"
 
-            detail = (
-                f"{record.get('description', '')[:250]} | "
-                f"Form: {form} | Filed: {record.get('file_date', '')}"
-            )
+            desc = (record.get("description") or "").strip()
+            file_date = record.get("file_date", "")
+            cik = record.get("cik", "")
+            accession = record.get("accession_number", "")
+
+            detail_parts = []
+            if desc:
+                detail_parts.append(desc[:300])
+            detail_parts.append(f"Company: {company_name}")
+            detail_parts.append(f"Form: {form}")
+            if file_date:
+                detail_parts.append(f"Filed: {file_date[:10]}")
+            if cik:
+                detail_parts.append(f"CIK: {cik}")
+            detail = " | ".join(detail_parts)
+
+            # Build EDGAR filing URL
+            source_url = None
+            if accession:
+                acc_clean = accession.replace("-", "")
+                source_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type={form}&dateb=&owner=include&count=10" if cik else None
 
             source_date = None
             try:
-                fd = record.get("file_date", "")
-                if fd:
-                    source_date = datetime.strptime(fd[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                if file_date:
+                    source_date = datetime.strptime(file_date[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             except (ValueError, TypeError):
                 pass
 
@@ -218,6 +234,7 @@ async def fetch_sec_data():
                 score_contribution=pts,
                 external_id=record["id"],
                 project_name=f"{form} Filing — {company_name}"[:100],
+                source_url=source_url,
                 source_date=source_date,
             )
             db.add(new_signal)

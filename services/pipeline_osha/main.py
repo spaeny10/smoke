@@ -216,7 +216,24 @@ async def fetch_osha_data():
                 penalty = record["total_current_penalty"]
                 violations = record["nr_violations"]
                 site = f"{record['site_city']}, {record['site_state']}"
-                detail = f"{insp_type} inspection | {violations} violation{'s' if violations != 1 else ''}, penalty ${penalty:,.0f} | {site}"
+                activity_nr = record.get("activity_nr", "")
+                estab_name = record.get("estab_name", "")
+
+                detail_parts = [
+                    f"{insp_type} Inspection",
+                    f"{violations} violation{'s' if violations != 1 else ''}",
+                    f"Penalty: ${penalty:,.0f}",
+                    site,
+                ]
+                if estab_name:
+                    detail_parts.append(f"Establishment: {estab_name}")
+                viol_type = record.get("violation_type", "")
+                if viol_type:
+                    detail_parts.append(f"Type: {viol_type}")
+                detail = " | ".join(detail_parts)
+
+                # OSHA inspection detail page
+                source_url = f"https://www.osha.gov/pls/imis/establishment.inspection_detail?id={activity_nr}" if activity_nr else None
 
                 new_signal = Signal(
                     account_id=matched_id,
@@ -227,9 +244,10 @@ async def fetch_osha_data():
                     detail=detail,
                     raw_data=record,
                     score_contribution=pts,
-                    external_id=record["activity_nr"],
+                    external_id=activity_nr,
                     location_city=record["site_city"],
                     location_state=record["site_state"],
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)

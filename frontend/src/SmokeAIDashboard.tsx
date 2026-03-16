@@ -3,7 +3,7 @@ import {
   Search, MessageSquare, Send, Sparkles, Building2, AlertCircle, FileText, Bot,
   Loader2, Check, XCircle, MapPin, Calendar, TrendingUp, ArrowLeft, User, Star,
   Target, Plus, ChevronDown, Copy, Phone, Mail, LayoutList, Rows3, Table2,
-  Shield, Flame, BarChart3, Leaf
+  Shield, Flame, BarChart3, Leaf, ExternalLink
 } from 'lucide-react';
 import {
   signalsApi, aiApi, accountsApi, contactsApi, projectsApi, activitiesApi, outreachApi,
@@ -700,6 +700,17 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                           selectedSignal.heat === 'warm' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
                           'bg-[#202022] text-[#8b8b93] border border-white/5'
                         }`}>{selectedSignal.heat.toUpperCase()}</span>
+                      )}
+                      {selectedSignal.source_url && (
+                        <a
+                          href={selectedSignal.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+                        >
+                          <ExternalLink size={11} />
+                          View Source
+                        </a>
                       )}
                     </div>
                   </div>

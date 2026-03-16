@@ -207,6 +207,7 @@ class SignalCreate(BaseModel):
     score_contribution: Optional[float] = 0.0
     location_city: Optional[str] = None
     location_state: Optional[str] = None
+    source_url: Optional[str] = None
 
 
 class SignalRead(BaseModel):
@@ -225,6 +226,7 @@ class SignalRead(BaseModel):
     project_value: Optional[float] = None
     location_city: Optional[str] = None
     location_state: Optional[str] = None
+    source_url: Optional[str] = None
     detected_at: datetime
     created_at: datetime
     source_date: Optional[datetime] = None

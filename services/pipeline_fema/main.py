@@ -163,11 +163,21 @@ async def fetch_fema_data():
 
             state_name = STATE_NAMES.get(disaster_state, disaster_state)
             area = record.get("designated_area", "")
-            detail = (
-                f"FEMA Disaster #{record.get('disaster_number', '')} — {record.get('incident_type', 'Unknown')} | "
-                f"{state_name}" + (f", {area}" if area else "") +
-                f" | Declared: {record.get('declaration_date', '')[:10]}"
-            )
+            disaster_num = record.get("disaster_number", "")
+            dec_date = record.get("declaration_date", "")
+
+            detail_parts = [
+                f"FEMA Disaster #{disaster_num}",
+                record.get("incident_type", "Unknown"),
+                state_name + (f", {area}" if area else ""),
+            ]
+            if dec_date:
+                detail_parts.append(f"Declared: {dec_date[:10]}")
+            detail_parts.append(f"Type: {'Major Disaster' if dec_type == 'DR' else 'Emergency'} Declaration")
+            detail = " | ".join(detail_parts)
+
+            # FEMA disaster detail page
+            source_url = f"https://www.fema.gov/disaster/{disaster_num}" if disaster_num else None
 
             source_date = None
             try:
@@ -194,6 +204,7 @@ async def fetch_fema_data():
                         external_id=ext_id,
                         project_name=record.get("title", "")[:100],
                         location_state=disaster_state,
+                        source_url=source_url,
                         source_date=source_date,
                     ))
                     records_scored += 1
@@ -234,6 +245,7 @@ async def fetch_fema_data():
                     external_id=ext_id,
                     project_name=record.get("title", "")[:100],
                     location_state=disaster_state,
+                    source_url=source_url,
                     source_date=source_date,
                 )
                 db.add(new_signal)
