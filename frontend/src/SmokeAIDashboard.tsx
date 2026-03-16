@@ -179,7 +179,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleTierUpdate = (tier: number) => {
-    if (!selectedSignal) return;
+    if (!selectedSignal || !selectedSignal.account_id) return;
     accountsApi.update(selectedSignal.account_id, { tier } as Partial<Account>)
       .then(res => {
         setTriageAccount(res.data);
@@ -189,7 +189,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleStageUpdate = (stage: string) => {
-    if (!selectedSignal) return;
+    if (!selectedSignal || !selectedSignal.account_id) return;
     setShowStageDropdown(false);
     accountsApi.update(selectedSignal.account_id, { deal_stage: stage } as Partial<Account>)
       .then(res => {
@@ -200,7 +200,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleCreateProject = () => {
-    if (!selectedSignal || !projectName.trim()) return;
+    if (!selectedSignal || !selectedSignal.account_id || !projectName.trim()) return;
     setProjectSaving(true);
     projectsApi.create({
       account_id: selectedSignal.account_id,
@@ -221,7 +221,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleCreateContact = () => {
-    if (!selectedSignal || !newContact.name.trim()) return;
+    if (!selectedSignal || !selectedSignal.account_id || !newContact.name.trim()) return;
     setContactSaving(true);
     contactsApi.create({
       account_id: selectedSignal.account_id,
@@ -241,7 +241,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleGenerateOutreach = (contactId: string) => {
-    if (!selectedSignal) return;
+    if (!selectedSignal || !selectedSignal.account_id) return;
     setOutreachContactId(contactId);
     setOutreachLoading(true);
     setOutreachResult(null);
@@ -254,7 +254,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
   };
 
   const handleLogActivity = () => {
-    if (!selectedSignal || !activityNote.trim()) return;
+    if (!selectedSignal || !selectedSignal.account_id || !activityNote.trim()) return;
     setActivitySaving(true);
     activitiesApi.create({
       account_id: selectedSignal.account_id,
@@ -646,7 +646,7 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                     {selectedSignal.account_name && (
                       <span
                         className="text-sm text-indigo-400 font-semibold hover:underline cursor-pointer truncate"
-                        onClick={() => onAccountClick?.(selectedSignal.account_id)}
+                        onClick={() => selectedSignal.account_id && onAccountClick?.(selectedSignal.account_id)}
                       >
                         {selectedSignal.account_name}
                       </span>
@@ -1040,11 +1040,12 @@ export default function SmokeAIDashboard({ onAccountClick }: SmokeAIDashboardPro
                   Dismiss
                 </button>
                 <button
-                  onClick={() => onAccountClick?.(selectedSignal.account_id)}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors"
+                  onClick={() => selectedSignal.account_id && onAccountClick?.(selectedSignal.account_id)}
+                  disabled={!selectedSignal.account_id}
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold border transition-colors ${selectedSignal.account_id ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20' : 'bg-[#202022] text-[#8b8b93] border-white/5 cursor-not-allowed'}`}
                 >
                   <Building2 size={14} />
-                  Full Account
+                  {selectedSignal.account_id ? 'Full Account' : 'Unmatched'}
                 </button>
               </div>
             )}
