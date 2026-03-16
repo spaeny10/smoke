@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Contact, Account
+from packages.db.models import Contact, Account, AccountLocation
 from services.api.schemas import (
     ContactCreate, ContactUpdate, ContactRead, PaginatedResponse,
 )
@@ -44,10 +44,21 @@ async def list_contacts(
         )
         acct_names = {str(row.id): row.name for row in acct_result.all()}
 
+    # Batch-fetch location labels
+    loc_ids = list({c.location_id for c in contacts if c.location_id})
+    loc_labels: dict[str, str] = {}
+    if loc_ids:
+        loc_result = await db.execute(
+            select(AccountLocation.id, AccountLocation.label).where(AccountLocation.id.in_(loc_ids))
+        )
+        loc_labels = {str(row.id): row.label for row in loc_result.all()}
+
     items = []
     for c in contacts:
         read = ContactRead.model_validate(c)
         read.account_name = acct_names.get(c.account_id)
+        if c.location_id:
+            read.location_label = loc_labels.get(c.location_id)
         items.append(read)
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
@@ -65,6 +76,10 @@ async def get_contact(contact_id: str, db: AsyncSession = Depends(get_db)):
         )
         if account:
             read.account_name = account.name
+    if contact.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == contact.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 
@@ -77,6 +92,7 @@ async def create_contact(data: ContactCreate, db: AsyncSession = Depends(get_db)
         raise HTTPException(status_code=404, detail="Account not found")
     contact = Contact(
         account_id=data.account_id,
+        location_id=data.location_id,
         name=data.name,
         title=data.title,
         role_category=data.role_category,
@@ -90,6 +106,10 @@ async def create_contact(data: ContactCreate, db: AsyncSession = Depends(get_db)
     await db.refresh(contact)
     read = ContactRead.model_validate(contact)
     read.account_name = account.name
+    if contact.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == contact.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 
@@ -112,6 +132,10 @@ async def update_contact(
         )
         if account:
             read.account_name = account.name
+    if contact.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == contact.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 

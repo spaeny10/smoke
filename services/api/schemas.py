@@ -114,6 +114,7 @@ class ContactCreate(BaseModel):
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
     source: Optional[str] = None
+    location_id: Optional[str] = None
 
 
 class ContactUpdate(BaseModel):
@@ -123,6 +124,7 @@ class ContactUpdate(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
+    location_id: Optional[str] = None
 
 
 class ContactRead(BaseModel):
@@ -130,6 +132,7 @@ class ContactRead(BaseModel):
 
     id: str
     account_id: str
+    location_id: Optional[str] = None
     name: str
     title: Optional[str] = None
     role_category: Optional[str] = None
@@ -140,6 +143,7 @@ class ContactRead(BaseModel):
     email_verified: bool
     created_at: datetime
     account_name: Optional[str] = None
+    location_label: Optional[str] = None
 
 
 # ── Project ──────────────────────────────────────────────
@@ -150,6 +154,7 @@ class ProjectCreate(BaseModel):
     description: Optional[str] = None
     primary_contact_id: Optional[str] = None
     signal_id: Optional[str] = None
+    location_id: Optional[str] = None
     stage: Optional[str] = "new"
     origin: Optional[str] = "manual"
     estimated_value: Optional[float] = 0.0
@@ -159,6 +164,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     primary_contact_id: Optional[str] = None
+    location_id: Optional[str] = None
     stage: Optional[str] = None
     estimated_value: Optional[float] = None
 
@@ -170,6 +176,7 @@ class ProjectRead(BaseModel):
     account_id: str
     primary_contact_id: Optional[str] = None
     signal_id: Optional[str] = None
+    location_id: Optional[str] = None
     name: str
     description: Optional[str] = None
     stage: str
@@ -178,6 +185,7 @@ class ProjectRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     account_name: Optional[str] = None
+    location_label: Optional[str] = None
 
 
 # ── Signal ───────────────────────────────────────────────

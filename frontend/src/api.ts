@@ -73,6 +73,7 @@ export interface AccountLocation {
 export interface Contact {
   id: string;
   account_id: string;
+  location_id: string | null;
   name: string;
   title: string | null;
   role_category: string | null;
@@ -83,6 +84,7 @@ export interface Contact {
   email_verified: boolean;
   created_at: string;
   account_name: string | null;
+  location_label: string | null;
 }
 
 export interface Project {
@@ -90,6 +92,7 @@ export interface Project {
   account_id: string;
   primary_contact_id: string | null;
   signal_id: string | null;
+  location_id: string | null;
   name: string;
   description: string | null;
   stage: string;
@@ -98,6 +101,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   account_name: string | null;
+  location_label: string | null;
 }
 
 export interface Signal {
@@ -209,7 +213,7 @@ export const contactsApi = {
     api.get<PaginatedResponse<Contact>>('/api/contacts', { params }),
   get: (id: string) =>
     api.get<Contact>(`/api/contacts/${id}`),
-  create: (data: { account_id: string; name: string; title?: string; role_category?: string; email?: string; phone?: string }) =>
+  create: (data: { account_id: string; name: string; title?: string; role_category?: string; email?: string; phone?: string; location_id?: string }) =>
     api.post<Contact>('/api/contacts', data),
   update: (id: string, data: Partial<Contact>) =>
     api.put<Contact>(`/api/contacts/${id}`, data),
@@ -224,7 +228,7 @@ export const projectsApi = {
     api.get<PaginatedResponse<Project>>('/api/projects', { params }),
   get: (id: string) =>
     api.get<Project>(`/api/projects/${id}`),
-  create: (data: { account_id: string; name: string; description?: string; signal_id?: string; stage?: string; origin?: string; estimated_value?: number }) =>
+  create: (data: { account_id: string; name: string; description?: string; signal_id?: string; location_id?: string; stage?: string; origin?: string; estimated_value?: number }) =>
     api.post<Project>('/api/projects', data),
   update: (id: string, data: Partial<Project>) =>
     api.put<Project>(`/api/projects/${id}`, data),

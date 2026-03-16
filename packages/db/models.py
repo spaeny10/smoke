@@ -97,6 +97,7 @@ class Contact(Base):
     __tablename__ = 'contacts'
     id = Column(String, primary_key=True, default=generate_uuid)
     account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
+    location_id = Column(String, ForeignKey('account_locations.id', ondelete='SET NULL'), nullable=True)
     name = Column(String, nullable=False)
     title = Column(String)
     role_category = Column(String)
@@ -108,6 +109,7 @@ class Contact(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     account = relationship("Account", back_populates="contacts")
+    location = relationship("AccountLocation")
     projects = relationship("Project", back_populates="primary_contact")
 
 class Project(Base):
@@ -116,6 +118,7 @@ class Project(Base):
     account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'))
     primary_contact_id = Column(String, ForeignKey('contacts.id', ondelete='SET NULL'), nullable=True)
     signal_id = Column(String, ForeignKey('signals.id', ondelete='SET NULL'), nullable=True)
+    location_id = Column(String, ForeignKey('account_locations.id', ondelete='SET NULL'), nullable=True)
 
     name = Column(String, nullable=False) # e.g. "Chicago West Loop Development"
     description = Column(String)
@@ -129,6 +132,7 @@ class Project(Base):
 
     account = relationship("Account", back_populates="projects")
     primary_contact = relationship("Contact", back_populates="projects")
+    location = relationship("AccountLocation")
     signal = relationship("Signal", back_populates="project")
 
 class Signal(Base):

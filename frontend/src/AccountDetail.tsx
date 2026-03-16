@@ -69,7 +69,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverMsg, setDiscoverMsg] = useState<string | null>(null);
   const [showAddContact, setShowAddContact] = useState(false);
-  const [addContactForm, setAddContactForm] = useState({ name: '', title: '', role_category: '', email: '', phone: '' });
+  const [addContactForm, setAddContactForm] = useState({ name: '', title: '', role_category: '', email: '', phone: '', location_id: '' });
   const [addContactSaving, setAddContactSaving] = useState(false);
   const [locations, setLocations] = useState<AccountLocation[]>([]);
   const [showLocationForm, setShowLocationForm] = useState(false);
@@ -356,6 +356,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                     <tr className="border-b border-white/5 text-[#8b8b93] text-sm">
                       <th className="pb-3 font-medium">Project Name</th>
                       <th className="pb-3 font-medium">Stage</th>
+                      <th className="pb-3 font-medium">Location</th>
                       <th className="pb-3 font-medium">Est. Value</th>
                       <th className="pb-3 font-medium">Source</th>
                       <th className="pb-3 font-medium text-right">Actions</th>
@@ -376,6 +377,7 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                             {p.stage.charAt(0).toUpperCase() + p.stage.slice(1)}
                           </span>
                         </td>
+                        <td className="py-4 text-sm text-[#8b8b93]">{p.location_label || '—'}</td>
                         <td className="py-4 text-green-400 font-medium">${p.estimated_value.toLocaleString()}</td>
                         <td className="py-4">
                           <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md ${
@@ -485,11 +487,16 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                               disabled={isPromoting}
                               onClick={() => {
                                 setPromotingSignalId(sig.id);
+                                // Auto-match signal location to an account branch
+                                const matchedLoc = sig.location_state
+                                  ? locations.find(l => l.state === sig.location_state)
+                                  : undefined;
                                 projectsApi.create({
                                   account_id: accountId,
                                   name: sig.project_name || sig.title,
                                   description: sig.detail || sig.title,
                                   signal_id: sig.id,
+                                  location_id: matchedLoc?.id,
                                   stage: 'new',
                                   origin: 'signal',
                                   estimated_value: sig.project_value || 0,
@@ -708,6 +715,11 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                           {c.role_category && (
                             <span className="bg-green-500/10 text-green-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
                               {c.role_category}
+                            </span>
+                          )}
+                          {c.location_label && (
+                            <span className="bg-orange-500/10 text-orange-400 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md">
+                              {c.location_label}
                             </span>
                           )}
                         </div>
@@ -965,6 +977,21 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                   />
                 </div>
               </div>
+              {locations.length > 0 && (
+                <div>
+                  <label className="text-xs text-[#8b8b93] block mb-1.5">Location</label>
+                  <select
+                    value={addContactForm.location_id}
+                    onChange={e => setAddContactForm(f => ({ ...f, location_id: e.target.value }))}
+                    className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">No specific location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>{loc.label}{loc.is_hq ? ' (HQ)' : ''} — {[loc.city, loc.state].filter(Boolean).join(', ')}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 p-6 pt-0">
               <button onClick={() => setShowAddContact(false)} className="text-xs text-[#8b8b93] hover:text-white px-4 py-2 rounded-lg transition-colors">Cancel</button>
@@ -979,9 +1006,10 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
                     role_category: addContactForm.role_category || undefined,
                     email: addContactForm.email || undefined,
                     phone: addContactForm.phone || undefined,
+                    location_id: addContactForm.location_id || undefined,
                   }).then(res => {
                     setContacts(prev => [...prev, res.data]);
-                    setAddContactForm({ name: '', title: '', role_category: '', email: '', phone: '' });
+                    setAddContactForm({ name: '', title: '', role_category: '', email: '', phone: '', location_id: '' });
                     setShowAddContact(false);
                   }).catch(() => {})
                     .finally(() => setAddContactSaving(false));

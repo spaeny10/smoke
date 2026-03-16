@@ -443,10 +443,20 @@ async def get_account_contacts(account_id: str, db: AsyncSession = Depends(get_d
         select(Contact).where(Contact.account_id == account_id)
     )
     contacts = result.scalars().all()
+    # Batch-fetch location labels
+    loc_ids = list({c.location_id for c in contacts if c.location_id})
+    loc_labels: dict[str, str] = {}
+    if loc_ids:
+        loc_result = await db.execute(
+            select(AccountLocation.id, AccountLocation.label).where(AccountLocation.id.in_(loc_ids))
+        )
+        loc_labels = {str(row.id): row.label for row in loc_result.all()}
     items = []
     for c in contacts:
         read = ContactRead.model_validate(c)
         read.account_name = account.name
+        if c.location_id:
+            read.location_label = loc_labels.get(c.location_id)
         items.append(read)
     return items
 
@@ -473,10 +483,20 @@ async def get_account_projects(account_id: str, db: AsyncSession = Depends(get_d
         select(Project).where(Project.account_id == account_id)
     )
     projects = result.scalars().all()
+    # Batch-fetch location labels
+    loc_ids = list({p.location_id for p in projects if p.location_id})
+    loc_labels: dict[str, str] = {}
+    if loc_ids:
+        loc_result = await db.execute(
+            select(AccountLocation.id, AccountLocation.label).where(AccountLocation.id.in_(loc_ids))
+        )
+        loc_labels = {str(row.id): row.label for row in loc_result.all()}
     items = []
     for p in projects:
         read = ProjectRead.model_validate(p)
         read.account_name = account.name
+        if p.location_id:
+            read.location_label = loc_labels.get(p.location_id)
         items.append(read)
     return items
 

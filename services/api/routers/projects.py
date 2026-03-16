@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from packages.db.session import get_db
-from packages.db.models import Project, Account
+from packages.db.models import Project, Account, AccountLocation
 from services.api.schemas import (
     ProjectCreate, ProjectUpdate, ProjectRead, PaginatedResponse,
 )
@@ -48,10 +48,21 @@ async def list_projects(
         )
         acct_names = {str(row.id): row.name for row in acct_result.all()}
 
+    # Batch-fetch location labels
+    loc_ids = list({p.location_id for p in projects if p.location_id})
+    loc_labels: dict[str, str] = {}
+    if loc_ids:
+        loc_result = await db.execute(
+            select(AccountLocation.id, AccountLocation.label).where(AccountLocation.id.in_(loc_ids))
+        )
+        loc_labels = {str(row.id): row.label for row in loc_result.all()}
+
     items = []
     for p in projects:
         read = ProjectRead.model_validate(p)
         read.account_name = acct_names.get(p.account_id)
+        if p.location_id:
+            read.location_label = loc_labels.get(p.location_id)
         items.append(read)
 
     return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
@@ -69,6 +80,10 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_db)):
         )
         if account:
             read.account_name = account.name
+    if project.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 
@@ -85,6 +100,7 @@ async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)
         description=data.description,
         primary_contact_id=data.primary_contact_id,
         signal_id=data.signal_id,
+        location_id=data.location_id,
         stage=data.stage,
         origin=data.origin,
         estimated_value=data.estimated_value,
@@ -94,6 +110,10 @@ async def create_project(data: ProjectCreate, db: AsyncSession = Depends(get_db)
     await db.refresh(project)
     read = ProjectRead.model_validate(project)
     read.account_name = account.name
+    if project.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 
@@ -116,6 +136,10 @@ async def update_project(
         )
         if account:
             read.account_name = account.name
+    if project.location_id:
+        loc = await db.scalar(select(AccountLocation).where(AccountLocation.id == project.location_id))
+        if loc:
+            read.location_label = loc.label
     return read
 
 
