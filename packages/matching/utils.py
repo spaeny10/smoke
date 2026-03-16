@@ -67,6 +67,49 @@ def fuzzy_match_company(normalized_name: str, target_dict: dict[str, str]) -> tu
     return None, score, category
 
 
+async def build_state_account_index(db: AsyncSession) -> dict[str, list[dict]]:
+    """
+    Build a state -> [account info] mapping that includes both HQ states
+    and all branch location states from AccountLocation.
+    """
+    from packages.db.models import Account, AccountLocation
+
+    state_accounts: dict[str, list[dict]] = {}
+
+    # 1. HQ states
+    result = await db.execute(
+        select(Account.id, Account.hq_state, Account.segment, Account.employee_count)
+        .where(Account.hq_state.isnot(None))
+    )
+    for row in result.all():
+        info = {
+            "id": str(row.id),
+            "segment": row.segment,
+            "employee_count": row.employee_count,
+        }
+        state_accounts.setdefault(row.hq_state, []).append(info)
+
+    # 2. Branch location states
+    loc_result = await db.execute(
+        select(AccountLocation.account_id, AccountLocation.state,
+               Account.segment, Account.employee_count)
+        .join(Account, AccountLocation.account_id == Account.id)
+        .where(AccountLocation.state.isnot(None))
+    )
+    for row in loc_result.all():
+        acct_id = str(row.account_id)
+        state = row.state
+        existing_ids = {a["id"] for a in state_accounts.get(state, [])}
+        if acct_id not in existing_ids:
+            state_accounts.setdefault(state, []).append({
+                "id": acct_id,
+                "segment": row.segment,
+                "employee_count": row.employee_count,
+            })
+
+    return state_accounts
+
+
 async def check_duplicate_account(
     name: str,
     db: AsyncSession,

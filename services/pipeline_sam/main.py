@@ -135,11 +135,12 @@ async def fetch_sam_data():
         existing_accounts = {row.name_normalized: str(row.id) for row in rows}
         account_details = {str(row.id): {"segment": row.segment, "employee_count": row.employee_count} for row in rows}
 
-        # For SAM opportunities, match to accounts in the same state
+        # For SAM opportunities, match to accounts in the same state (HQ + branches)
+        from packages.matching.utils import build_state_account_index
+        state_accounts_raw = await build_state_account_index(db)
         state_accounts: dict[str, list[str]] = {}
-        acct_states = await db.execute(select(Account.id, Account.hq_state).where(Account.hq_state.isnot(None)))
-        for row in acct_states.all():
-            state_accounts.setdefault(row.hq_state, []).append(str(row.id))
+        for state, acct_list in state_accounts_raw.items():
+            state_accounts[state] = [a["id"] for a in acct_list]
 
         records_fetched = len(records)
         records_matched = 0

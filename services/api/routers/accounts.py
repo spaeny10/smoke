@@ -8,10 +8,11 @@ from datetime import datetime, timezone, timedelta
 import asyncio
 
 from packages.db.session import get_db
-from packages.db.models import Account, Contact, Signal, Project, User, Activity
+from packages.db.models import Account, AccountLocation, Contact, Signal, Project, User, Activity
 from packages.matching.utils import normalize_company_name, check_duplicate_account
 from services.api.schemas import (
     AccountCreate, AccountUpdate, AccountRead,
+    AccountLocationCreate, AccountLocationUpdate, AccountLocationRead,
     ContactRead, SignalRead, ProjectRead,
     PaginatedResponse, PriorityQueueItem, PriorityQueueResponse,
     BulkAccountUpdate, BulkAccountDelete,
@@ -480,6 +481,105 @@ async def get_account_projects(account_id: str, db: AsyncSession = Depends(get_d
     return items
 
 
+# ── Locations ─────────────────────────────────────────────
+
+@router.get("/{account_id}/locations", response_model=list[AccountLocationRead])
+async def get_account_locations(account_id: str, db: AsyncSession = Depends(get_db)):
+    account = await db.scalar(select(Account).where(Account.id == account_id))
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    result = await db.execute(
+        select(AccountLocation)
+        .where(AccountLocation.account_id == account_id)
+        .order_by(AccountLocation.is_hq.desc(), AccountLocation.label)
+    )
+    return [AccountLocationRead.model_validate(loc) for loc in result.scalars().all()]
+
+
+@router.post("/{account_id}/locations", response_model=AccountLocationRead, status_code=201)
+async def create_account_location(
+    account_id: str,
+    data: AccountLocationCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    account = await db.scalar(select(Account).where(Account.id == account_id))
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if data.is_hq:
+        existing_hq = await db.execute(
+            select(AccountLocation).where(
+                AccountLocation.account_id == account_id,
+                AccountLocation.is_hq == True,
+            )
+        )
+        for loc in existing_hq.scalars().all():
+            loc.is_hq = False
+    location = AccountLocation(
+        account_id=account_id,
+        label=data.label,
+        address=data.address,
+        city=data.city,
+        state=data.state,
+        zip=data.zip,
+        is_hq=data.is_hq or False,
+    )
+    db.add(location)
+    await db.commit()
+    await db.refresh(location)
+    return AccountLocationRead.model_validate(location)
+
+
+@router.put("/{account_id}/locations/{location_id}", response_model=AccountLocationRead)
+async def update_account_location(
+    account_id: str,
+    location_id: str,
+    data: AccountLocationUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    location = await db.scalar(
+        select(AccountLocation).where(
+            AccountLocation.id == location_id,
+            AccountLocation.account_id == account_id,
+        )
+    )
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    update_data = data.model_dump(exclude_unset=True)
+    if update_data.get("is_hq"):
+        existing_hq = await db.execute(
+            select(AccountLocation).where(
+                AccountLocation.account_id == account_id,
+                AccountLocation.is_hq == True,
+                AccountLocation.id != location_id,
+            )
+        )
+        for loc in existing_hq.scalars().all():
+            loc.is_hq = False
+    for key, value in update_data.items():
+        setattr(location, key, value)
+    await db.commit()
+    await db.refresh(location)
+    return AccountLocationRead.model_validate(location)
+
+
+@router.delete("/{account_id}/locations/{location_id}", status_code=204)
+async def delete_account_location(
+    account_id: str,
+    location_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    location = await db.scalar(
+        select(AccountLocation).where(
+            AccountLocation.id == location_id,
+            AccountLocation.account_id == account_id,
+        )
+    )
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+    await db.delete(location)
+    await db.commit()
+
+
 # ── Account Merge ─────────────────────────────────────────
 
 @router.post("/merge")
@@ -518,6 +618,12 @@ async def merge_accounts(
     for a in activities:
         a.account_id = keep_id
 
+    # Re-parent locations (demote to branch)
+    locations = (await db.execute(select(AccountLocation).where(AccountLocation.account_id == merge_id))).scalars().all()
+    for loc in locations:
+        loc.account_id = keep_id
+        loc.is_hq = False
+
     # Take the better composite score
     if merge.composite_score > keep.composite_score:
         keep.composite_score = merge.composite_score
@@ -537,4 +643,5 @@ async def merge_accounts(
         "contacts_moved": len(contacts),
         "signals_moved": len(signals),
         "projects_moved": len(projects),
+        "locations_moved": len(locations),
     }

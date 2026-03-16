@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChevronRight, ExternalLink, Target, Plus, AlertCircle, Loader2, Star, Phone, Mail, MessageSquare, FileText, Send } from 'lucide-react';
-import { accountsApi, contactsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, projectsApi, outreachApi, signalsApi, type Account, type Contact, type Signal, type Activity, type OutreachSequence, type Project } from './api';
+import { accountsApi, contactsApi, activitiesApi, signalDedupApi, enrichApi, sequencesApi, projectsApi, outreachApi, signalsApi, type Account, type AccountLocation, type Contact, type Signal, type Activity, type OutreachSequence, type Project } from './api';
 
 /** Build weekly score chart data from real signals. */
 function buildIntentData(signals: Signal[]) {
@@ -71,6 +71,11 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
   const [showAddContact, setShowAddContact] = useState(false);
   const [addContactForm, setAddContactForm] = useState({ name: '', title: '', role_category: '', email: '', phone: '' });
   const [addContactSaving, setAddContactSaving] = useState(false);
+  const [locations, setLocations] = useState<AccountLocation[]>([]);
+  const [showLocationForm, setShowLocationForm] = useState(false);
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [locationForm, setLocationForm] = useState({ label: '', city: '', state: '', address: '', zip: '', is_hq: false });
+  const [locationSaving, setLocationSaving] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -79,11 +84,13 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
       accountsApi.getContacts(accountId),
       accountsApi.getSignals(accountId),
       projectsApi.list({ account_id: accountId, limit: 100 }),
-    ]).then(([acctRes, contactsRes, signalsRes, projRes]) => {
+      accountsApi.getLocations(accountId),
+    ]).then(([acctRes, contactsRes, signalsRes, projRes, locRes]) => {
       setAccount(acctRes.data);
       setContacts(contactsRes.data);
       setSignals(signalsRes.data);
       setAccountApiProjects(projRes.data.items);
+      setLocations(locRes.data);
     }).catch(() => {})
       .finally(() => setLoading(false));
   }, [accountId]);
@@ -1008,6 +1015,144 @@ export default function AccountDetail({ accountId, onNavigate }: { accountId: st
           <PropertyRow label="Contacts" value={String(contacts.length)} icon="👤" />
           <PropertyRow label="Signals" value={String(signals.length)} icon="📡" />
         </div>
+
+        {/* Locations Section */}
+        <div className="mt-8 pt-6 border-t border-white/5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-white text-sm">Locations</h3>
+            <button
+              onClick={() => { setShowLocationForm(true); setEditingLocationId(null); setLocationForm({ label: '', city: '', state: '', address: '', zip: '', is_hq: false }); }}
+              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+            >
+              <Plus size={12} /> Add
+            </button>
+          </div>
+
+          {account.hq_city && (
+            <div className="mb-3 p-3 rounded-lg bg-[#1a1a1c] border border-white/5">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-medium">HQ</span>
+                <span className="text-xs text-white font-medium">Headquarters</span>
+              </div>
+              <p className="text-xs text-[#8b8b93]">
+                {account.hq_city}{account.hq_state ? `, ${account.hq_state}` : ''}
+              </p>
+            </div>
+          )}
+
+          {locations.map(loc => (
+            <div key={loc.id} className="mb-3 p-3 rounded-lg bg-[#1a1a1c] border border-white/5 group">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  {loc.is_hq && <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-medium shrink-0">HQ</span>}
+                  <span className="text-xs text-white font-medium truncate">{loc.label}</span>
+                </div>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                  <button onClick={() => {
+                    setEditingLocationId(loc.id);
+                    setLocationForm({ label: loc.label, city: loc.city || '', state: loc.state || '', address: loc.address || '', zip: loc.zip || '', is_hq: loc.is_hq });
+                    setShowLocationForm(true);
+                  }} className="text-[10px] text-[#8b8b93] hover:text-white transition-colors">Edit</button>
+                  <button onClick={() => {
+                    accountsApi.deleteLocation(accountId, loc.id).then(() =>
+                      setLocations(prev => prev.filter(l => l.id !== loc.id))
+                    );
+                  }} className="text-[10px] text-red-400 hover:text-red-300 transition-colors">Remove</button>
+                </div>
+              </div>
+              <p className="text-xs text-[#8b8b93]">
+                {[loc.city, loc.state].filter(Boolean).join(', ') || loc.address || 'No address'}
+              </p>
+            </div>
+          ))}
+
+          {locations.length === 0 && !account.hq_city && (
+            <p className="text-xs text-[#8b8b93]">No locations added yet.</p>
+          )}
+        </div>
+
+        {/* Add/Edit Location Form */}
+        {showLocationForm && (
+          <div className="mt-4 p-4 rounded-xl bg-[#1a1a1c] border border-white/10">
+            <h4 className="text-sm font-medium text-white mb-3">{editingLocationId ? 'Edit Location' : 'Add Location'}</h4>
+            <div className="space-y-3">
+              <input
+                placeholder="Label (e.g. Dallas Office)"
+                value={locationForm.label}
+                onChange={e => setLocationForm(f => ({ ...f, label: e.target.value }))}
+                className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b8b93] focus:outline-none focus:border-indigo-500"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  placeholder="City"
+                  value={locationForm.city}
+                  onChange={e => setLocationForm(f => ({ ...f, city: e.target.value }))}
+                  className="bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b8b93] focus:outline-none focus:border-indigo-500"
+                />
+                <select
+                  value={locationForm.state}
+                  onChange={e => setLocationForm(f => ({ ...f, state: e.target.value }))}
+                  className="bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">State</option>
+                  {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <input
+                placeholder="Address (optional)"
+                value={locationForm.address}
+                onChange={e => setLocationForm(f => ({ ...f, address: e.target.value }))}
+                className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b8b93] focus:outline-none focus:border-indigo-500"
+              />
+              <input
+                placeholder="ZIP (optional)"
+                value={locationForm.zip}
+                onChange={e => setLocationForm(f => ({ ...f, zip: e.target.value }))}
+                className="w-full bg-[#141416] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#8b8b93] focus:outline-none focus:border-indigo-500"
+              />
+              <label className="flex items-center gap-2 text-xs text-[#8b8b93] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={locationForm.is_hq}
+                  onChange={e => setLocationForm(f => ({ ...f, is_hq: e.target.checked }))}
+                  className="rounded border-white/20 bg-[#141416]"
+                />
+                Mark as headquarters
+              </label>
+              <div className="flex gap-2 pt-1">
+                <button
+                  disabled={!locationForm.label.trim() || locationSaving}
+                  onClick={async () => {
+                    setLocationSaving(true);
+                    try {
+                      if (editingLocationId) {
+                        const res = await accountsApi.updateLocation(accountId, editingLocationId, locationForm);
+                        setLocations(prev => prev.map(l => l.id === editingLocationId ? res.data : l));
+                      } else {
+                        const res = await accountsApi.createLocation(accountId, locationForm);
+                        setLocations(prev => [...prev, res.data]);
+                      }
+                      setShowLocationForm(false);
+                      setEditingLocationId(null);
+                    } catch {}
+                    finally { setLocationSaving(false); }
+                  }}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+                >
+                  {locationSaving ? 'Saving...' : editingLocationId ? 'Update' : 'Add Location'}
+                </button>
+                <button
+                  onClick={() => { setShowLocationForm(false); setEditingLocationId(null); }}
+                  className="px-3 py-2 text-xs text-[#8b8b93] hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

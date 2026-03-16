@@ -68,6 +68,41 @@ class AccountRead(BaseModel):
     updated_at: datetime
 
 
+# ── Account Location ─────────────────────────────────────
+
+class AccountLocationCreate(BaseModel):
+    label: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    is_hq: Optional[bool] = False
+
+
+class AccountLocationUpdate(BaseModel):
+    label: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    is_hq: Optional[bool] = None
+
+
+class AccountLocationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    account_id: str
+    label: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    is_hq: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 # ── Contact ──────────────────────────────────────────────
 
 class ContactCreate(BaseModel):

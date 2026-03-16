@@ -128,18 +128,9 @@ async def fetch_fema_data():
     async with async_session() as db:
         gates = await load_enabled_gates(db)
 
-        # Load accounts grouped by state
-        result = await db.execute(
-            select(Account.id, Account.hq_state, Account.segment, Account.employee_count)
-            .where(Account.hq_state.isnot(None))
-        )
-        state_accounts: dict[str, list[dict]] = {}
-        for row in result.all():
-            state_accounts.setdefault(row.hq_state, []).append({
-                "id": str(row.id),
-                "segment": row.segment,
-                "employee_count": row.employee_count,
-            })
+        # Load accounts grouped by state (HQ + branch locations)
+        from packages.matching.utils import build_state_account_index
+        state_accounts = await build_state_account_index(db)
 
         records_fetched = len(records)
         records_matched = 0

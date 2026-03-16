@@ -75,6 +75,23 @@ class Account(Base):
     activities = relationship("Activity", back_populates="account", cascade="all, delete-orphan")
     outreach_messages = relationship("OutreachMessage", back_populates="account", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="account", cascade="all, delete-orphan")
+    locations = relationship("AccountLocation", back_populates="account", cascade="all, delete-orphan")
+
+class AccountLocation(Base):
+    __tablename__ = 'account_locations'
+    id = Column(String, primary_key=True, default=generate_uuid)
+    account_id = Column(String, ForeignKey('accounts.id', ondelete='CASCADE'), nullable=False)
+    label = Column(String, nullable=False)
+    address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zip = Column(String)
+    is_hq = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    account = relationship("Account", back_populates="locations")
+
 
 class Contact(Base):
     __tablename__ = 'contacts'

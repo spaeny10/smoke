@@ -57,6 +57,19 @@ export interface Account {
   updated_at: string;
 }
 
+export interface AccountLocation {
+  id: string;
+  account_id: string;
+  label: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  is_hq: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Contact {
   id: string;
   account_id: string;
@@ -181,6 +194,14 @@ export const accountsApi = {
     api.post<{ status: string; message: string }>(`/api/accounts/${id}/discover-contacts`),
   merge: (keepId: string, mergeId: string) =>
     api.post<{ status: string; kept: Account; contacts_moved: number; signals_moved: number; projects_moved: number }>(`/api/accounts/merge?keep_id=${keepId}&merge_id=${mergeId}`),
+  getLocations: (id: string) =>
+    api.get<AccountLocation[]>(`/api/accounts/${id}/locations`),
+  createLocation: (id: string, data: { label: string; address?: string; city?: string; state?: string; zip?: string; is_hq?: boolean }) =>
+    api.post<AccountLocation>(`/api/accounts/${id}/locations`, data),
+  updateLocation: (accountId: string, locationId: string, data: Partial<AccountLocation>) =>
+    api.put<AccountLocation>(`/api/accounts/${accountId}/locations/${locationId}`, data),
+  deleteLocation: (accountId: string, locationId: string) =>
+    api.delete(`/api/accounts/${accountId}/locations/${locationId}`),
 };
 
 export const contactsApi = {
