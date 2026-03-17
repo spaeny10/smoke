@@ -85,3 +85,35 @@ class ProcoreClient:
                     break
                 page += 1
         return all_projects
+
+    async def get_project_users(self, project_id: int) -> list[dict]:
+        """Fetch users assigned to a Procore project (paginated)."""
+        all_users = []
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            page = 1
+            while True:
+                params = {"company_id": self.company_id, "per_page": 100, "page": page}
+                data = await self._request(session, "GET", f"/projects/{project_id}/users", params=params)
+                if not data or not isinstance(data, list):
+                    break
+                all_users.extend(data)
+                if len(data) < 100:
+                    break
+                page += 1
+        return all_users
+
+    async def get_rfis(self, project_id: int) -> list[dict]:
+        """Fetch RFIs for a Procore project (paginated)."""
+        all_rfis = []
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            page = 1
+            while True:
+                params = {"company_id": self.company_id, "per_page": 100, "page": page}
+                data = await self._request(session, "GET", f"/projects/{project_id}/rfis", params=params)
+                if not data or not isinstance(data, list):
+                    break
+                all_rfis.extend(data)
+                if len(data) < 100:
+                    break
+                page += 1
+        return all_rfis
