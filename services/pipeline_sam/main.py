@@ -15,51 +15,6 @@ from packages.matching.signal_gates import load_enabled_gates, signal_passes_gat
 # SAM.gov Opportunities API — free key from api.data.gov
 SAM_BASE = "https://api.sam.gov/opportunities/v2/search"
 
-MOCK_SAM_DATA = [
-    {
-        "id": "SAM-OPP-2026-001",
-        "notice_id": "W912DY26R0088",
-        "title": "Design-Build: Barracks Renovation, Fort Liberty",
-        "description": "Full renovation of 4 barracks buildings including MEP, structural, and site work.",
-        "naics_code": "236220",
-        "organization": "US Army Corps of Engineers",
-        "city": "Fayetteville",
-        "state": "NC",
-        "posted_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "response_deadline": (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d"),
-        "type": "solicitation",
-        "set_aside": "Total Small Business Set-Aside",
-    },
-    {
-        "id": "SAM-OPP-2026-002",
-        "notice_id": "GS11P26MKC0045",
-        "title": "Federal Courthouse New Construction — Phoenix, AZ",
-        "description": "New 12-story federal courthouse, 350,000 SF, LEED Gold target.",
-        "naics_code": "236220",
-        "organization": "General Services Administration",
-        "city": "Phoenix",
-        "state": "AZ",
-        "posted_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "response_deadline": (datetime.now(timezone.utc) + timedelta(days=45)).strftime("%Y-%m-%d"),
-        "type": "presolicitation",
-        "set_aside": None,
-    },
-    {
-        "id": "SAM-OPP-2026-003",
-        "notice_id": "DTFH6126R00015",
-        "title": "I-95 Bridge Deck Replacement — Phase 2",
-        "description": "Replace bridge decks on 3 overpasses along I-95 corridor.",
-        "naics_code": "237310",
-        "organization": "Federal Highway Administration",
-        "city": "Richmond",
-        "state": "VA",
-        "posted_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "response_deadline": (datetime.now(timezone.utc) + timedelta(days=21)).strftime("%Y-%m-%d"),
-        "type": "solicitation",
-        "set_aside": None,
-    },
-]
-
 
 async def fetch_from_sam() -> list[dict]:
     """Fetch federal construction opportunities from SAM.gov."""
@@ -121,11 +76,15 @@ async def fetch_sam_data():
     print(f"[{datetime.now().isoformat()}] Starting SAM.gov opportunities fetch...")
 
     records = await fetch_from_sam()
-    if records:
-        print(f"  Fetched {len(records)} total SAM opportunities")
-    else:
-        print("  SAM.gov API unavailable — using mock data")
-        records = MOCK_SAM_DATA
+    print(f"  Fetched {len(records)} total SAM opportunities")
+
+    if not records:
+        api_key = os.environ.get("SAM_API_KEY")
+        if not api_key:
+            print("  SAM_API_KEY not set — skipping SAM.gov pipeline")
+        else:
+            print("  No SAM opportunities returned")
+        return
 
     async with async_session() as db:
         gates = await load_enabled_gates(db)

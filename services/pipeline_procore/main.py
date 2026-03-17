@@ -35,68 +35,6 @@ PROCORE_ROLE_MAP = {
     "Owner": "Decision Maker",
 }
 
-MOCK_PROCORE_DATA = [
-    {
-        "id": 8392104,
-        "project_name": "Austin Metro Transit Expansion",
-        "company_name": "Austin Commercial",
-        "stage": "Bidding",
-        "estimated_value": 75000000.0,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "location": "Austin, TX",
-        "users": [
-            {"id": 1001, "name": "Maria Garcia", "email_address": "mgarcia@austincommercial.com",
-             "permission_template": {"name": "Project Manager"}},
-            {"id": 1002, "name": "James Chen", "email_address": "jchen@austincommercial.com",
-             "permission_template": {"name": "Safety Manager"}},
-        ],
-        "rfi_count": 12,
-    },
-    {
-        "id": 9923145,
-        "project_name": "Skyline High-Rise Condos",
-        "company_name": "Turner Construction Company",
-        "stage": "Pre-Construction",
-        "estimated_value": 120000000.0,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "location": "Chicago, IL",
-        "users": [
-            {"id": 2001, "name": "Robert Kim", "email_address": "rkim@turnerconstruction.com",
-             "permission_template": {"name": "Project Manager"}},
-            {"id": 2002, "name": "Sarah Williams", "email_address": "swilliams@turnerconstruction.com",
-             "permission_template": {"name": "Safety Manager"}},
-            {"id": 2003, "name": "David Brown", "email_address": "dbrown@turnerconstruction.com",
-             "permission_template": {"name": "Superintendent"}},
-        ],
-        "rfi_count": 55,
-    },
-    {
-        "id": 9923146,
-        "project_name": "Lakeshore Medical Center",
-        "company_name": "Turner Construction Company",
-        "stage": "Active",
-        "estimated_value": 95000000.0,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "location": "Chicago, IL",
-        "users": [
-            {"id": 2001, "name": "Robert Kim", "email_address": "rkim@turnerconstruction.com",
-             "permission_template": {"name": "Project Manager"}},
-        ],
-        "rfi_count": 30,
-    },
-    {
-        "id": 9923147,
-        "project_name": "O'Hare Terminal Modernization",
-        "company_name": "Turner Construction Company",
-        "stage": "Active",
-        "estimated_value": 200000000.0,
-        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "location": "Chicago, IL",
-        "users": [],
-        "rfi_count": 80,
-    },
-]
-
 
 def _parse_location(record: dict) -> tuple:
     """Extract (city, state) from record location string."""
@@ -209,13 +147,16 @@ async def _add_signal(db, ext_id: str, gates, record, matched_id, acct_info, **k
 async def fetch_procore_data():
     print(f"[{datetime.now().isoformat()}] Starting Procore data fetch...")
 
-    # Try real API first, fall back to mock
     records = await fetch_from_procore_api()
-    if records:
-        print(f"  Fetched {len(records)} projects from Procore API")
-    else:
-        print("  Procore not configured or unavailable — using mock data")
-        records = MOCK_PROCORE_DATA
+    print(f"  Fetched {len(records)} projects from Procore API")
+
+    if not records:
+        client = ProcoreClient()
+        if not client.is_configured:
+            print("  Procore not configured — skipping pipeline")
+        else:
+            print("  No Procore projects returned")
+        return
 
     async with async_session() as db:
         gates = await load_enabled_gates(db)

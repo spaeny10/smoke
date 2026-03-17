@@ -15,48 +15,123 @@ from packages.matching.signal_gates import load_enabled_gates, signal_passes_gat
 
 # Socrata Open Data portals for building permits (SODA API — no key required, 1000/hr limit)
 # Each city uses different field names, so we define extractors per city.
+# Focused on target states: TX, LA, FL, NC, TN, OK, KS, MO, SC, NM
 
-MOCK_PERMIT_DATA = [
-    {
-        "id": "PERMIT-CHI-2026-001",
-        "contractor_name": "Turner Construction Company",
-        "address": "200 W Monroe St",
-        "city": "Chicago",
-        "state": "IL",
-        "work_description": "New construction - 40 story mixed use tower",
-        "estimated_value": 85000000.0,
-        "issue_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "permit_type": "New Construction",
-    },
-    {
-        "id": "PERMIT-LA-2026-042",
-        "contractor_name": "Swinerton Builders",
-        "address": "1100 Wilshire Blvd",
-        "city": "Los Angeles",
-        "state": "CA",
-        "work_description": "Commercial interior renovation - 15 floors",
-        "estimated_value": 12000000.0,
-        "issue_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "permit_type": "Alteration",
-    },
-    {
-        "id": "PERMIT-NYC-2026-118",
-        "contractor_name": "Skanska USA Building",
-        "address": "425 Park Avenue",
-        "city": "New York",
-        "state": "NY",
-        "work_description": "Foundation work and structural steel for office tower",
-        "estimated_value": 200000000.0,
-        "issue_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "permit_type": "New Construction",
-    },
-]
+
+def extract_dallas_record(row: dict) -> dict | None:
+    """Extract from Dallas permit data (dallasopendata.com)."""
+    contractor = (row.get("contractor") or "").strip()
+    if not contractor:
+        return None
+
+    value = 0.0
+    try:
+        value = float(row.get("value") or 0)
+    except (ValueError, TypeError):
+        pass
+
+    if value < 500000:
+        return None
+
+    return {
+        "id": f"permit_dallas_{row.get('permit_num', row.get('id', ''))}",
+        "contractor_name": contractor,
+        "address": (row.get("street_address") or "").strip(),
+        "city": "Dallas",
+        "state": "TX",
+        "work_description": (row.get("work_description") or "")[:500],
+        "estimated_value": value,
+        "issue_date": row.get("issued_date", ""),
+        "permit_type": row.get("permit_type", ""),
+    }
+
+
+def extract_austin_record(row: dict) -> dict | None:
+    """Extract from Austin permit data (data.austintexas.gov)."""
+    contractor = (row.get("contractor_company_name") or row.get("contractor_full_name") or "").strip()
+    if not contractor:
+        return None
+
+    value = 0.0
+    try:
+        value = float(row.get("total_job_valuation") or row.get("building_valuation") or 0)
+    except (ValueError, TypeError):
+        pass
+
+    if value < 500000:
+        return None
+
+    return {
+        "id": f"permit_austin_{row.get('permit_number', row.get('id', ''))}",
+        "contractor_name": contractor,
+        "address": (row.get("original_address1") or "").strip(),
+        "city": "Austin",
+        "state": "TX",
+        "work_description": (row.get("description") or "")[:500],
+        "estimated_value": value,
+        "issue_date": row.get("issue_date", ""),
+        "permit_type": row.get("permit_type_desc", row.get("work_class", "")),
+    }
+
+
+def extract_fort_worth_record(row: dict) -> dict | None:
+    """Extract from Fort Worth permit data (BLDS partner site)."""
+    contractor = (row.get("contractorcompanyname") or row.get("contractorfullname") or "").strip()
+    if not contractor:
+        return None
+
+    value = 0.0
+    try:
+        value = float(row.get("estprojectcost") or row.get("estprojectcostdec") or 0)
+    except (ValueError, TypeError):
+        pass
+
+    if value < 500000:
+        return None
+
+    return {
+        "id": f"permit_ftworth_{row.get('permitnum', row.get('id', ''))}",
+        "contractor_name": contractor,
+        "address": (row.get("originaladdress1") or "").strip(),
+        "city": "Fort Worth",
+        "state": "TX",
+        "work_description": (row.get("description") or "")[:500],
+        "estimated_value": value,
+        "issue_date": row.get("issueddate", ""),
+        "permit_type": row.get("permittypedesc", row.get("workclass", "")),
+    }
+
+
+def extract_new_orleans_record(row: dict) -> dict | None:
+    """Extract from New Orleans permit data (data.nola.gov BLDS)."""
+    contractor = (row.get("contractorcompanyname") or "").strip()
+    if not contractor:
+        return None
+
+    value = 0.0
+    try:
+        value = float(row.get("estprojectcost") or 0)
+    except (ValueError, TypeError):
+        pass
+
+    if value < 500000:
+        return None
+
+    return {
+        "id": f"permit_nola_{row.get('permitnum', row.get('id', ''))}",
+        "contractor_name": contractor,
+        "address": (row.get("originaladdress1") or "").strip(),
+        "city": "New Orleans",
+        "state": "LA",
+        "work_description": (row.get("description") or "")[:500],
+        "estimated_value": value,
+        "issue_date": row.get("issuedate", ""),
+        "permit_type": row.get("permittypedesc", row.get("workclass", "")),
+    }
 
 
 def extract_chicago_record(row: dict) -> dict | None:
-    """Extract a normalized record from Chicago permit data.
-    Chicago uses contact_N_type / contact_N_name pairs; we look for GENERAL CONTRACTOR.
-    """
+    """Extract a normalized record from Chicago permit data."""
     contractor = ""
     for i in range(1, 11):
         ctype = (row.get(f"contact_{i}_type") or "").upper()
@@ -72,7 +147,6 @@ def extract_chicago_record(row: dict) -> dict | None:
     except (ValueError, TypeError):
         pass
 
-    # Only care about permits with reported cost > $500k (filters noise)
     if value < 500000:
         return None
 
@@ -92,34 +166,6 @@ def extract_chicago_record(row: dict) -> dict | None:
     }
 
 
-def extract_la_record(row: dict) -> dict | None:
-    """Extract from LA permit data (data.lacity.org)."""
-    contractor = (row.get("contractors_business_name") or "").strip()
-    if not contractor:
-        return None
-
-    value = 0.0
-    try:
-        value = float(row.get("valuation") or 0)
-    except (ValueError, TypeError):
-        pass
-
-    if value < 500000:
-        return None
-
-    return {
-        "id": f"permit_la_{row.get('pcis_permit', row.get('permit_nbr', ''))}",
-        "contractor_name": contractor,
-        "address": row.get("address", ""),
-        "city": "Los Angeles",
-        "state": "CA",
-        "work_description": (row.get("work_description") or row.get("project_description") or "")[:500],
-        "estimated_value": value,
-        "issue_date": row.get("issue_date", ""),
-        "permit_type": row.get("type", row.get("permit_type", "")),
-    }
-
-
 def extract_nyc_record(row: dict) -> dict | None:
     """Extract from NYC permit data (DOB job filings)."""
     contractor = (row.get("applicant_business_name") or "").strip()
@@ -135,7 +181,6 @@ def extract_nyc_record(row: dict) -> dict | None:
     if value < 500000:
         return None
 
-    # Compose address from NYC fields
     house = row.get("house__", row.get("house_no", ""))
     street = row.get("street_name", "")
     address = f"{house} {street}".strip()
@@ -154,20 +199,45 @@ def extract_nyc_record(row: dict) -> dict | None:
 
 
 # City configs: URL, date field for ordering/filtering, and extractor function
+# Target states first (TX, LA), then supplemental cities
 PERMIT_SOURCES = [
+    # ── Texas ──
+    {
+        "city": "Dallas",
+        "base_url": "https://www.dallasopendata.com/resource/e7gq-4sah.json",
+        "date_field": "issued_date",
+        "extractor": extract_dallas_record,
+        "filter_clause": "value > 500000",
+    },
+    {
+        "city": "Austin",
+        "base_url": "https://data.austintexas.gov/resource/3syk-w9eu.json",
+        "date_field": "issue_date",
+        "extractor": extract_austin_record,
+        "filter_clause": "total_job_valuation > 500000",
+    },
+    {
+        "city": "Fort Worth",
+        "base_url": "https://permits.partner.socrata.com/resource/qy5k-jz7m.json",
+        "date_field": "issueddate",
+        "extractor": extract_fort_worth_record,
+        "filter_clause": "estprojectcost > 500000",
+    },
+    # ── Louisiana ──
+    {
+        "city": "New Orleans",
+        "base_url": "https://data.nola.gov/resource/72f9-bi28.json",
+        "date_field": "issuedate",
+        "extractor": extract_new_orleans_record,
+        "filter_clause": "estprojectcost > 500000",
+    },
+    # ── Supplemental (large markets) ──
     {
         "city": "Chicago",
         "base_url": "https://data.cityofchicago.org/resource/ydr8-5enu.json",
         "date_field": "issue_date",
         "extractor": extract_chicago_record,
         "filter_clause": "reported_cost > 500000",
-    },
-    {
-        "city": "Los Angeles",
-        "base_url": "https://data.lacity.org/resource/yv23-pmwf.json",
-        "date_field": "issue_date",
-        "extractor": extract_la_record,
-        "filter_clause": "valuation > 500000",
     },
     {
         "city": "New York",
@@ -182,12 +252,11 @@ PERMIT_SOURCES = [
 async def fetch_from_socrata() -> list[dict]:
     """Fetch building permit data from Socrata open data portals."""
     all_records = []
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%dT00:00:00")
 
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
         for src in PERMIT_SOURCES:
             try:
-                # Query recent high-value permits
                 where_clause = f"{src['date_field']} > '{cutoff}'"
                 if src.get("filter_clause"):
                     where_clause += f" AND {src['filter_clause']}"
@@ -198,7 +267,6 @@ async def fetch_from_socrata() -> list[dict]:
                     "$where": where_clause,
                 }
 
-                # Socrata app token increases rate limit from 1000 to 50000/hr
                 headers = {}
                 app_token = os.environ.get("SOCRATA_APP_TOKEN")
                 if app_token:
@@ -231,19 +299,16 @@ async def fetch_from_socrata() -> list[dict]:
 async def fetch_permit_data():
     print(f"[{datetime.now().isoformat()}] Starting building permit data fetch...")
 
-    # Try real APIs first, fall back to mock
     records = await fetch_from_socrata()
-    if records:
-        print(f"  Fetched {len(records)} total permit records")
-    else:
-        print("  Socrata APIs unavailable — using mock data")
-        records = MOCK_PERMIT_DATA
+    print(f"  Fetched {len(records)} total permit records")
+
+    if not records:
+        print("  No permit records found from any source")
+        return
 
     async with async_session() as db:
-        # Load signal gates for filtering
         gates = await load_enabled_gates(db)
 
-        # Load accounts for matching
         result = await db.execute(select(Account.id, Account.name_normalized, Account.segment, Account.employee_count))
         rows = result.all()
         existing_accounts = {row.name_normalized: str(row.id) for row in rows}
@@ -261,7 +326,6 @@ async def fetch_permit_data():
             company_name = record["contractor_name"]
             norm_name = normalize_company_name(company_name)
 
-            # Simple matching
             matched_id = existing_aliases.get(norm_name)
             if not matched_id and norm_name in existing_accounts:
                 matched_id = existing_accounts[norm_name]
@@ -285,14 +349,12 @@ async def fetch_permit_data():
             if matched_id:
                 records_matched += 1
 
-                # Dedup by external_id
                 dup_check = await db.execute(
                     select(Signal).where(Signal.external_id == record["id"])
                 )
                 if dup_check.scalars().first():
                     continue
 
-                # Gate check — skip signals that don't match any enabled gate
                 acct_info = account_details.get(str(matched_id), {})
                 if not signal_passes_gates(
                     gates,
@@ -305,7 +367,6 @@ async def fetch_permit_data():
                     records_gated += 1
                     continue
 
-                # Score based on permit type and value
                 pts = 0
                 heat = "cool"
                 permit_type = record.get("permit_type", "").lower()
@@ -316,7 +377,7 @@ async def fetch_permit_data():
                     pts += 35
                     heat = "hot"
                     title = f"New Construction Permit{loc_tag}"
-                elif "alteration" in permit_type or "renovation" in permit_type:
+                elif "alteration" in permit_type or "renovation" in permit_type or "remodel" in permit_type:
                     pts += 20
                     heat = "warm"
                     title = f"Renovation Permit{loc_tag}"
@@ -336,9 +397,7 @@ async def fetch_permit_data():
                     pts += 10
 
                 value_str = f"${record['estimated_value']:,.0f}" if record["estimated_value"] else "N/A"
-                detail = f"{record.get('work_description', '')[:200]} | Value: {value_str}"
 
-                # Parse source date
                 source_date = None
                 try:
                     if record.get("issue_date"):
@@ -351,7 +410,6 @@ async def fetch_permit_data():
                 work_desc = (record.get("work_description") or "")[:250]
                 city = record.get("city", "")
                 state = record.get("state", "")
-                owner = record.get("owner_name", "")
 
                 detail_parts = []
                 if work_desc:
@@ -362,11 +420,8 @@ async def fetch_permit_data():
                     detail_parts.append(f"Address: {address}, {city}, {state}")
                 elif city:
                     detail_parts.append(f"{city}, {state}")
-                if owner:
-                    detail_parts.append(f"Owner: {owner}")
                 detail = " | ".join(detail_parts)
 
-                # No universal permit URL — varies by municipality
                 source_url = None
 
                 new_signal = Signal(

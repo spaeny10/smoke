@@ -19,48 +19,6 @@ ECHO_BASE = "https://echodata.epa.gov/echo"
 # SIC codes for construction industries
 CONSTRUCTION_SIC = ["15", "16", "17"]  # General Building, Heavy Construction, Special Trade
 
-MOCK_EPA_DATA = [
-    {
-        "id": "EPA-110070537537",
-        "facility_name": "Turner Construction - Riverside Project",
-        "registry_id": "110070537537",
-        "operator_name": "Turner Construction Company",
-        "city": "Chicago",
-        "state": "IL",
-        "sic_code": "1522",
-        "permit_type": "Clean Air Act",
-        "compliance_status": "In Compliance",
-        "last_inspection_date": datetime.now(timezone.utc).strftime("%m/%d/%Y"),
-        "activity_type": "permit_issued",
-    },
-    {
-        "id": "EPA-110035221890",
-        "facility_name": "Kiewit Infrastructure - Highway 101 Expansion",
-        "registry_id": "110035221890",
-        "operator_name": "Kiewit Infrastructure Co",
-        "city": "San Jose",
-        "state": "CA",
-        "sic_code": "1611",
-        "permit_type": "Clean Water Act",
-        "compliance_status": "In Compliance",
-        "last_inspection_date": datetime.now(timezone.utc).strftime("%m/%d/%Y"),
-        "activity_type": "permit_issued",
-    },
-    {
-        "id": "EPA-110082910045",
-        "facility_name": "Granite Construction - Quarry Operations",
-        "registry_id": "110082910045",
-        "operator_name": "Granite Construction Inc",
-        "city": "Houston",
-        "state": "TX",
-        "sic_code": "1611",
-        "permit_type": "RCRA",
-        "compliance_status": "Violation",
-        "last_inspection_date": datetime.now(timezone.utc).strftime("%m/%d/%Y"),
-        "activity_type": "violation",
-    },
-]
-
 
 async def fetch_from_echo() -> list[dict]:
     """Fetch construction-related EPA permits and enforcement actions."""
@@ -145,11 +103,11 @@ async def fetch_epa_data():
     print(f"[{datetime.now().isoformat()}] Starting EPA environmental permits fetch...")
 
     records = await fetch_from_echo()
-    if records:
-        print(f"  Fetched {len(records)} total EPA records")
-    else:
-        print("  EPA ECHO API unavailable — using mock data")
-        records = MOCK_EPA_DATA
+    print(f"  Fetched {len(records)} total EPA records")
+
+    if not records:
+        print("  No EPA records returned from ECHO API")
+        return
 
     async with async_session() as db:
         gates = await load_enabled_gates(db)

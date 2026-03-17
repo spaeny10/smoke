@@ -20,31 +20,6 @@ DOL_API_BASE = "https://data.dol.gov/get/inspection"
 # Construction NAICS prefixes: 236=Building, 237=Heavy/Civil, 238=Specialty Trade
 CONSTRUCTION_NAICS = ["236", "237", "238"]
 
-MOCK_OSHA_DATA = [
-    {
-        "activity_nr": "123456789",
-        "estab_name": "Turner Construction Company LLC",
-        "site_city": "New York",
-        "site_state": "NY",
-        "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "insp_type": "Accident",
-        "violation_type": "Serious",
-        "total_current_penalty": 15000.0,
-        "nr_violations": 2,
-    },
-    {
-        "activity_nr": "987654321",
-        "estab_name": "DPR Construction",
-        "site_city": "Redwood City",
-        "site_state": "CA",
-        "open_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "insp_type": "Planned",
-        "violation_type": "",
-        "total_current_penalty": 0.0,
-        "nr_violations": 0,
-    },
-]
-
 
 async def fetch_from_dol_api() -> list[dict]:
     """Fetch real OSHA inspection data from data.dol.gov API."""
@@ -107,13 +82,15 @@ async def fetch_from_dol_api() -> list[dict]:
 async def fetch_osha_data():
     print(f"[{datetime.now().isoformat()}] Starting OSHA data fetch...")
 
-    # Try real API first, fall back to mock
     records = await fetch_from_dol_api()
-    if records:
-        print(f"  Fetched {len(records)} records from DOL API")
-    else:
-        print("  DOL_API_KEY not set or API unavailable — using mock data")
-        records = MOCK_OSHA_DATA
+    print(f"  Fetched {len(records)} records from DOL API")
+
+    if not records:
+        if not DOL_API_KEY:
+            print("  DOL_API_KEY not set — skipping OSHA pipeline")
+        else:
+            print("  No OSHA records returned")
+        return
 
     async with async_session() as db:
         # Load signal gates for filtering

@@ -22,37 +22,6 @@ DELAY_BETWEEN_ACCOUNTS = float(os.environ.get("JOBTITLE_DELAY_SECONDS", "2.0"))
 MAX_ACCOUNTS_PER_RUN = int(os.environ.get("JOBTITLE_MAX_ACCOUNTS", "50"))
 
 # Mock data for development/testing (same pattern as other pipelines)
-MOCK_JOBTITLE_DATA = [
-    {
-        "account_normalized": "turner construction",
-        "contacts": [
-            {"name": "Peter Davoren", "title": "Chairman & CEO", "source": "linkedin_google",
-             "linkedin_url": "https://www.linkedin.com/in/peterdavoren", "external_id": "li_mock001"},
-            {"name": "Michael Szubski", "title": "VP of Operations", "source": "company_website",
-             "external_id": "web_mock001"},
-            {"name": "Karen Godfrey", "title": "EVP & General Counsel", "source": "linkedin_google",
-             "linkedin_url": "https://www.linkedin.com/in/karengodfrey", "external_id": "li_mock002"},
-        ],
-    },
-    {
-        "account_normalized": "skanska",
-        "contacts": [
-            {"name": "Richard Cavallaro", "title": "President & CEO", "source": "linkedin_google",
-             "linkedin_url": "https://www.linkedin.com/in/richardcavallaro", "external_id": "li_mock003"},
-            {"name": "Lisa Hagen", "title": "SVP of Preconstruction", "source": "company_website",
-             "external_id": "web_mock002"},
-        ],
-    },
-    {
-        "account_normalized": "hensel phelps",
-        "contacts": [
-            {"name": "Mike Choutka", "title": "President & CEO", "source": "linkedin_google",
-             "linkedin_url": "https://www.linkedin.com/in/mikechoutka", "external_id": "li_mock004"},
-            {"name": "Jerry Morgensen", "title": "Chairman", "source": "company_website",
-             "external_id": "web_mock003"},
-        ],
-    },
-]
 
 
 async def fetch_jobtitle_data(account_id: str | None = None):
@@ -123,13 +92,8 @@ async def fetch_jobtitle_data(account_id: str | None = None):
                     )
                     scraped_contacts.extend(web_contacts)
 
-                # Fall back to mock data if scraping returned nothing
                 if not scraped_contacts:
-                    norm = acct.name_normalized
-                    for mock in MOCK_JOBTITLE_DATA:
-                        if mock["account_normalized"] in norm or norm in mock["account_normalized"]:
-                            scraped_contacts = [dict(c) for c in mock["contacts"]]
-                            break
+                    continue
 
                 # Deduplicate and insert contacts
                 added_for_account = 0

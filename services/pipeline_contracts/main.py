@@ -21,45 +21,6 @@ USASPENDING_BASE = "https://api.usaspending.gov/api/v2/search/spending_by_award/
 # "23" covers all construction: 236 (Building), 237 (Heavy/Civil), 238 (Specialty Trade)
 CONSTRUCTION_NAICS = ["23"]
 
-MOCK_CONTRACT_DATA = [
-    {
-        "id": "CONT_W912DY23C0045",
-        "award_id": "W912DY-23-C-0045",
-        "contractor_name": "Hensel Phelps Construction Co",
-        "description": "Military housing renovation - Fort Bragg",
-        "naics_code": "236220",
-        "award_amount": 45000000.0,
-        "start_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "awarding_agency": "Department of Defense",
-        "place_city": "Fayetteville",
-        "place_state": "NC",
-    },
-    {
-        "id": "CONT_GS11P21MKC0087",
-        "award_id": "GS-11P-21-MKC-0087",
-        "contractor_name": "Clark Construction Group LLC",
-        "description": "Federal courthouse expansion and modernization",
-        "naics_code": "236220",
-        "award_amount": 92000000.0,
-        "start_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "awarding_agency": "General Services Administration",
-        "place_city": "Washington",
-        "place_state": "DC",
-    },
-    {
-        "id": "CONT_DTFH6116C00032",
-        "award_id": "DTFH61-16-C-00032",
-        "contractor_name": "Kiewit Infrastructure Co",
-        "description": "Interstate bridge replacement project",
-        "naics_code": "237310",
-        "award_amount": 158000000.0,
-        "start_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "awarding_agency": "Department of Transportation",
-        "place_city": "Louisville",
-        "place_state": "KY",
-    },
-]
-
 
 async def fetch_from_usaspending() -> list[dict]:
     """Fetch federal construction contract awards from USASpending.gov."""
@@ -143,13 +104,12 @@ async def fetch_from_usaspending() -> list[dict]:
 async def fetch_contract_data():
     print(f"[{datetime.now().isoformat()}] Starting federal contract data fetch...")
 
-    # Try real API first, fall back to mock
     records = await fetch_from_usaspending()
-    if records:
-        print(f"  Fetched {len(records)} total contract records")
-    else:
-        print("  USASpending API unavailable — using mock data")
-        records = MOCK_CONTRACT_DATA
+    print(f"  Fetched {len(records)} total contract records")
+
+    if not records:
+        print("  No contract records returned from USASpending API")
+        return
 
     async with async_session() as db:
         # Load signal gates for filtering

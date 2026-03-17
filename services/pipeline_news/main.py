@@ -40,36 +40,6 @@ KNOWN_GC_PATTERNS = [
     "walsh construction", "shawmut design", "lendlease", "pcl construction",
 ]
 
-MOCK_NEWS_DATA = [
-    {
-        "id": "news_gn_abc123",
-        "title": "Turner Construction Wins $200M Chicago Hospital Project",
-        "description": "Turner Construction Company has been awarded the general contractor role for a new $200 million hospital expansion in downtown Chicago.",
-        "url": "https://example.com/news/turner-hospital",
-        "published": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source_name": "Construction Dive",
-        "matched_company": "Turner Construction Company",
-    },
-    {
-        "id": "news_gn_def456",
-        "title": "Skanska USA Breaks Ground on Miami Office Tower",
-        "description": "Skanska USA has begun construction on a 30-story office tower in Miami's Brickell district, valued at approximately $150 million.",
-        "url": "https://example.com/news/skanska-miami",
-        "published": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source_name": "ENR",
-        "matched_company": "Skanska USA",
-    },
-    {
-        "id": "news_gn_ghi789",
-        "title": "DPR Construction Expands Data Center Division with New Hires",
-        "description": "DPR Construction is scaling its data center construction division, adding 50 new positions as demand for hyperscale facilities surges.",
-        "url": "https://example.com/news/dpr-datacenter",
-        "published": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source_name": "Business Wire",
-        "matched_company": "DPR Construction",
-    },
-]
-
 
 def extract_company_from_text(text: str) -> str | None:
     """Try to find a known GC name in the text."""
@@ -155,13 +125,12 @@ async def fetch_from_google_news() -> list[dict]:
 async def fetch_news_data():
     print(f"[{datetime.now().isoformat()}] Starting construction news fetch...")
 
-    # Try real RSS first, fall back to mock
     records = await fetch_from_google_news()
-    if records:
-        print(f"  Fetched {len(records)} matched news articles")
-    else:
-        print("  Google News RSS unavailable — using mock data")
-        records = MOCK_NEWS_DATA
+    print(f"  Fetched {len(records)} matched news articles")
+
+    if not records:
+        print("  No news articles matched known contractors")
+        return
 
     async with async_session() as db:
         # Load signal gates for filtering
@@ -214,10 +183,11 @@ async def fetch_news_data():
                 if dup_check.scalars().first():
                     continue
 
-                # Gate check — skip signals that don't match any enabled gate
+                # Gate check — use account HQ state since news doesn't have its own location
                 acct_info = account_details.get(str(matched_id), {})
                 if not signal_passes_gates(
                     gates,
+                    location_state=acct_info.get("hq_state"),
                     source="news",
                     account_segment=acct_info.get("segment"),
                     account_employee_count=acct_info.get("employee_count"),

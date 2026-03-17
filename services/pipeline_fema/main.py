@@ -31,39 +31,6 @@ STATE_NAMES = {
     "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
 }
 
-MOCK_FEMA_DATA = [
-    {
-        "id": "FEMA-DR-4856",
-        "disaster_number": 4856,
-        "state": "FL",
-        "declaration_type": "DR",
-        "title": "Hurricane Milton",
-        "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z"),
-        "designated_area": "Hillsborough County",
-        "incident_type": "Hurricane",
-    },
-    {
-        "id": "FEMA-DR-4849",
-        "disaster_number": 4849,
-        "state": "CA",
-        "declaration_type": "DR",
-        "title": "Wildfires",
-        "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z"),
-        "designated_area": "Los Angeles County",
-        "incident_type": "Fire",
-    },
-    {
-        "id": "FEMA-DR-4841",
-        "disaster_number": 4841,
-        "state": "TX",
-        "declaration_type": "DR",
-        "title": "Severe Storms and Flooding",
-        "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z"),
-        "designated_area": "Harris County",
-        "incident_type": "Flood",
-    },
-]
-
 
 async def fetch_from_fema() -> list[dict]:
     """Fetch recent FEMA disaster declarations."""
@@ -119,11 +86,11 @@ async def fetch_fema_data():
     print(f"[{datetime.now().isoformat()}] Starting FEMA disaster declarations fetch...")
 
     records = await fetch_from_fema()
-    if records:
-        print(f"  Fetched {len(records)} disaster declarations")
-    else:
-        print("  FEMA API unavailable — using mock data")
-        records = MOCK_FEMA_DATA
+    print(f"  Fetched {len(records)} disaster declarations")
+
+    if not records:
+        print("  No recent disaster declarations found")
+        return
 
     async with async_session() as db:
         gates = await load_enabled_gates(db)
