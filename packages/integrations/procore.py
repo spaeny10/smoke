@@ -16,7 +16,7 @@ class ProcoreClient:
         use_sandbox = os.environ.get("PROCORE_SANDBOX", "1") == "1"
         if use_sandbox:
             self.BASE_URL = "https://sandbox.procore.com/rest/v1.0"
-            self.AUTH_URL = "https://sandbox.procore.com/oauth/token"
+            self.AUTH_URL = "https://login-sandbox.procore.com/oauth/token"
         else:
             self.BASE_URL = "https://app.procore.com/rest/v1.0"
             self.AUTH_URL = "https://login.procore.com/oauth/token"
