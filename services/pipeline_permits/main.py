@@ -203,25 +203,11 @@ def extract_nyc_record(row: dict) -> dict | None:
 PERMIT_SOURCES = [
     # ── Texas ──
     {
-        "city": "Dallas",
-        "base_url": "https://www.dallasopendata.com/resource/e7gq-4sah.json",
-        "date_field": "issued_date",
-        "extractor": extract_dallas_record,
-        "filter_clause": "value > 500000",
-    },
-    {
         "city": "Austin",
         "base_url": "https://data.austintexas.gov/resource/3syk-w9eu.json",
         "date_field": "issue_date",
         "extractor": extract_austin_record,
         "filter_clause": "total_job_valuation > 500000",
-    },
-    {
-        "city": "Fort Worth",
-        "base_url": "https://permits.partner.socrata.com/resource/qy5k-jz7m.json",
-        "date_field": "issueddate",
-        "extractor": extract_fort_worth_record,
-        "filter_clause": "estprojectcost > 500000",
     },
     # ── Louisiana ──
     {

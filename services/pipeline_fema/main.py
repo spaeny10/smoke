@@ -12,7 +12,7 @@ from packages.db.models import Account, Signal
 from packages.matching.signal_gates import load_enabled_gates, signal_passes_gates
 
 # FEMA Open API — free, no key required
-FEMA_BASE = "https://www.fema.gov/api/open/v2/DisasterDeclarations"
+FEMA_BASE = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
 
 # State abbreviation to name for display
 STATE_NAMES = {
@@ -52,7 +52,7 @@ async def fetch_from_fema() -> list[dict]:
                     print(f"  FEMA API {resp.status}")
                     return []
                 data = await resp.json()
-                declarations = data.get("DisasterDeclarations", [])
+                declarations = data.get("DisasterDeclarationsSummaries", [])
 
                 # Deduplicate by disaster number (one per state, not per county)
                 seen_disasters: set[str] = set()

@@ -24,7 +24,7 @@ async def fetch_from_echo() -> list[dict]:
     """Fetch construction-related EPA permits and enforcement actions."""
     all_records = []
 
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as session:
         # Query each program (CWA, CAA, RCRA) for construction SIC codes
         programs = [
             ("cwa_rest_services", "Clean Water Act"),

@@ -62,10 +62,11 @@ def _matches_gate(
 ) -> bool:
     """Check if signal+account match ALL conditions in a single gate."""
 
-    # States filter
+    # States filter — only reject if a state IS known but not in the list.
+    # Signals without location data (e.g., news, SEC) pass through.
     states = conditions.get("states")
     if states:
-        if not location_state or location_state not in states:
+        if location_state is not None and location_state not in states:
             return False
 
     # Sources filter
