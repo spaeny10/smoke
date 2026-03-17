@@ -64,7 +64,7 @@ MOCK_CONTRACT_DATA = [
 async def fetch_from_usaspending() -> list[dict]:
     """Fetch federal construction contract awards from USASpending.gov."""
     all_records = []
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d")
 
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
         for prefix in CONSTRUCTION_NAICS:
@@ -92,7 +92,7 @@ async def fetch_from_usaspending() -> list[dict]:
                         "Place of Performance State Code",
                         "generated_internal_id",
                     ],
-                    "limit": 100,
+                    "limit": 500,
                     "page": 1,
                     "sort": "Award Amount",
                     "order": "desc",
